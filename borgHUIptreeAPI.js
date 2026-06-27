@@ -562,10 +562,11 @@ class BorgHUIptreeAPI {
         msg: {
           req: "deleteShard",
           shard: {
-            ownerID: muid,
-            hash: shard.shardID,
-            hashID: shard.shardHID,
-            nCopys: shard.nStored
+            ownerID : muid,
+            hash    : shard.shardID,
+            hashID  : shard.shardHID,
+            nCopys  : shard.nStored,
+            delAuth : this.net.wallet.signToken(shard.shardHID)
           }
         }
       };

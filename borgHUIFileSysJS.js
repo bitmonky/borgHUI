@@ -326,6 +326,8 @@ function handlerCreateRepo(j){
 }
 
 function refreshSideBar(){
+  openFolder(rname, folderID, foldName,mbrMUID);
+  return;
   var url = '/whzon/bitMiner/demoRepoRefreshSB.php?' + queryString;
   borgSendUpdateResByUrl(url, 'sideBar');
 }
