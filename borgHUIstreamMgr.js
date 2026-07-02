@@ -943,7 +943,7 @@ class BorgHUIstreamMgr {
 
       // Try Re-request this shard
 
-      if (await this.maxTriesExceeded(stream,shard.Idx)){
+      if (await this.maxTriesExceeded(stream,shardIdx)){
         return;
       }
 
