@@ -9,7 +9,7 @@
   "author": "bitmonky",
   "license": "MIT",
   "dependencies": {
-    "multer": "^1.4.5",
+    "multer": "",
     "elliptic": "^6.5.4",
     "bitcoinjs-lib": "^6.1.0",
     "mime-types": "^2.1.35",
