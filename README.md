@@ -2,7 +2,7 @@
 ### Borg Human Interface 
 **The client conduit to the BorgIOS Network.
 
-![main](images/borgGit.jpg)
+![main](images/borgHUI.png)
 
 This node.js application runs on your machine allowing you to access BorgIOS using any standard web browser.
 
