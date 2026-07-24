@@ -201,8 +201,8 @@ function doUpateBorgTime(j){
 }
 function updateBorgClock() {
   const now = new Date(); // this uses your overridden Date.now()
-  document.getElementById('borgClock').textContent =
-  new Date().toLocaleString();
+  const clock = document.getElementById('borgClock');
+  if (clock) clock.textContent = new Date().toLocaleString();
 }
 
 function chkYouTubeImage(img) {
@@ -981,6 +981,9 @@ function doShowAccountInfo(j) {
   if (!spot) return;
   if (!j.nFarms) j.nFarms = 'No Farms Registerd ';
   var htm = "<div ID='doShowAcc' class='infoCardClear' style='width:100%'>";
+  htm += '   <div id="borgClock" style="width:100%;color:#ababab;text-align:right;padding-bottom:0.5em;';
+  htm += `font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;monospace; `;
+  htm += 'font-size: 16px;"></div>';
   htm += "<a href='javascript:openBorgUserEdit(false);'>";
   htm += "<img ID='borgMyICON' style='width:5em;height:6em;margin:0em 0em 1.5em 1.5em;float:right;border-radius:50%;' src='" + j.icon + "'/></a>";
   htm += "Account Owner: " + format(j.name);
