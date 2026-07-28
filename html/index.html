@@ -273,7 +273,7 @@ padding:5px 15px 15px 15px;position:fixed;top:1em;left:1em;'>
    </div>
    </div>
    </div>
-   <div id="borgSpacer" style="height:1em;width:100%;color:#ababab;text-align:right;padding-right:1.5em;font-family: monospace; font-size: 16px;"><br/></div>
+   <div id="borgSpacer" style="height:1em;width:100%;color:#ababab;text-align:right;margin-bottom:2em;padding-right:1.5em;font-family: monospace; font-size: 16px;"></div>
    </header>
    <main style='height:calc(86vh);'>
         <aside style='margin-left:0.5em;'>
@@ -343,8 +343,14 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
     <asideChat style=''>
             <div id="profileField">
     <div ID='wzChatterCol' style="width:calc(100% - 1em);min-height:vh;overflow:hidden;">
-    <div ID='wzChatLoader' class='infoCardClear' style='color:#bcbcbc;min-height:5em;margin:.5em .5em .5em .5em;'>BorgCom Channel .: 00-1 of 9</div>
-    <div style="padding:0.75em 0px;" ID="wzStreamDisplay"></div>
+    <div ID='wzChatLoader' class='infoCardClear' style='color:#bcbcbc;min-height:5em;margin:.5em .5em .5em .5em;'>BorgCom Channel .: 00-1 of 9</br>
+    <textarea ID='sideChatInput' style='width:calc(100% - 0em);margin:0px;height:4em;background:none;'></textarea>
+    </div>
+    <div ID="borgChatLoading" display="none">
+    <div style='padding:.5em;display:inline;height:28px;color:#777777;' ><div class='mkyloader'></div>Assimilating User Input...</div>" +
+    "</div>"
+
+    <div style="padding:1.5em 0em;color:white;" ID="wzStreamDisplay"></div>
     </div>
              <div id="profileTop" style="display:block;">
                     <div>
@@ -412,7 +418,7 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
         <style>
 
 .container {
-    padding: 0em 1.5em 0em 1.5em;
+    padding: 0em 0.8em 0em 1.5em;
     height: 84vh; 
     width: 100%;
     max-width:100%;
@@ -488,7 +494,12 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
         </div>
 
         <div ID="accountInfo" style='width:100%;color:white'></div>
-        <div ID="serviceMenu" style='width:100%;color:white'></div>
+
+<div style="display:flex; align-items:flex-start;">
+   <div id="servSidePanel" style="margin-right:1.5em;display:none; width:60%; color:white;"></div>
+   <div id="serviceMenu" style="flex:1; color:white;"></div>
+</div>
+
         <div ID="serviceView"></div>
         </div>
         <div ID='wzMainLoader'></div>
