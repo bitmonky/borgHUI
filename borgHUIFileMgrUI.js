@@ -244,9 +244,9 @@ async getBorgFileSys(url) {
   //
   if (!sessISMOBILE) {
     html += `
-      <table style='max-width:calc(100%);table-layout:fixed;'>
+      <table style='width:calc(100%);'>
       <tr valign='top'>
-      <td>
+      <td style="width:25%;min-width:25em;">
     `;
   } else {
     html += `<p/>`;
@@ -260,7 +260,7 @@ async getBorgFileSys(url) {
   const sidebarHTML = await this.buildRepoSidebarHTML(ctx);
 
   html += `
-    <div id='sideBar' style='width:25%;min-width:25em;overflow:auto;'>
+    <div id='sideBar' style='overflow:auto;'>
       ${sidebarHTML}
     </div>
   `;
@@ -273,7 +273,7 @@ async getBorgFileSys(url) {
   if (!sessISMOBILE) {
     html += `
       </td>
-      <td style='width:90em;max-width:90em;overflow:auto;padding-left:5em;'>
+      <td style='overflow:auto;padding-left:2em;'>
     `;
   } else {
     html += `<p/>`;

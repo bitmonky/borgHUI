@@ -677,7 +677,7 @@ function doSearch() {
   var cqry   = document.getElementById("sQry");
   var prompt = cqry.value || "";
 
-  cqry.value = prompt;
+  cqry.value = '';
 
   if (chatStatus === 'closed'){
     showSideChat();
