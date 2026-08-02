@@ -18,7 +18,7 @@ function noenter() {
 function scrollToTop(){
   hideInfo();
   showSearching();
-  document.querySelector('.container').scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('mainViewerPg').scrollTo({ top: 0, behavior: 'smooth' });
   window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
 }
 
@@ -657,7 +657,6 @@ async function doCreateBorgMemory(formData) {
 
         // Close the modal on success
         document.getElementById('borg-modal-overlay').remove();
-        alert("Metadata extracted successfully. Broadcasting to P2P network...");
 
     } catch (err) {
         console.error('Error extracting P2P metadata:', err);

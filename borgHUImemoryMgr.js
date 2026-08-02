@@ -195,7 +195,9 @@ class BorgHUImemoryMgr {
      if (await this.storeUserMemoryToTree(weights, memStr, this.net.wallet.ownMUID, memHash)){
        const doTry = await this.uploadMemoryFile(memStr, this.net.wallet.ownMUID, memHash);
        console.log(`doStoreMemory():: `,doTry);
+       return doTry;
      }
+     return null;
   }
   async uploadMemoryFile(memStr,ownMUID,memHash){
     const fholder = `${memHash}.tmp`;
@@ -279,7 +281,7 @@ class BorgHUImemoryMgr {
 
     Generate keywords now:`;
   }
-  sendOAIPrompt(prompt, mod = 'deepseek-reasoner', temp = 0.0) {
+  sendOAIPrompt(prompt, mod = 'deepseek-reasoner', temp = 0.75) {
     return new Promise((resolve,reject) => {
       this.connections = [];
       var stream = null;
@@ -296,7 +298,7 @@ class BorgHUImemoryMgr {
         action: "getTextStream", // Ensure this matches the server logic
         prompt: prompt,
         useModel: mod,
-        maxTokens: 8020,
+        maxTokens: 28020,
         temperature: temp
       });
 
@@ -1049,7 +1051,7 @@ class BorgHUImemoryMgr {
           sIndex    : shardIdx,
           shard : {
             streamId  : streamId,
-            ownerID   : this.net.wallet.ownMUID,
+            ownerID   : shard.ownMUID,
             hash      : shard.hash,
             hashID    : shard.shardHID,
             encrypted : 0,

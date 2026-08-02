@@ -50,6 +50,10 @@ function handleBorgMsg(msg){
     doUpdateUpload(msg);
     return;
   }
+  if (msg.req === 'createBorgMemory'){
+    alert(msg.msg);
+    return;
+  }
   if (msg.req === 'updateMemQry'){
     if (msg.error === true) {
       hideDiv(`mem-${msg.hash}`);
@@ -61,6 +65,13 @@ function handleBorgMsg(msg){
     }
     doUpdateFullMemory(msg); 
   }
+}
+function doMainSearch(){
+  const pg = document.getElementById('mainViewerPg');
+  if (pg) pg.scrollTo = 0;
+
+  const sbox = document.getElementById('peerMemQry');
+  if (sbox) sbox.focus();
 }
 function doUpdateMemQry(msg){
   let div = document.getElementById(`mem-${msg.hash}`);
@@ -117,7 +128,9 @@ function doUpdateMemQry(msg){
   }
 }
 function doUpdateFullMemory(msg){
-  
+  console.log(`doUpdateFullMemory():: `,msg);
+  const pg = document.getElementById('mainViewerPg');
+  if (pg) pg.scrollTop = 0;  
   let div = document.getElementById(`servSidePanel`);
   showDiv(`servSidePanel`);
   let memoryData;
@@ -155,7 +168,16 @@ function doUpdateFullMemory(msg){
       `;
   }
 
+  let action = '';
+  if (borgMUID === msg.ownMUID){
+    action = `
+      <div id="fmemActionSpot" align="right" style="padding: 0.5em;">
+      <input type="button" value=" Delete Memory " id="deleteMemoryBut"
+      onclick="deleteMemoryFile('${msg.ownMUID}','${msg.hash}');">
+     </div>`;
+  }
   const htm = `<div class="infoCardClear" style="width:100%";>
+        ${action}
         <div style="font-weight: bold; font-size: 1.8em;">
           ${memoryData.title || 'Untitled'}
         </div>
@@ -187,6 +209,26 @@ function doGetFullMemory(ownID,memoryID,memoryHash){
       memoryHash : memoryHash,
     }
   });
+}
+function deleteMemoryFile(ownID,memoryID){
+  let conf = confirm('Delete This Memory Now?');
+  if (!conf) return;
+
+  sendRequest({
+    req: "deleteBorgMemory",
+    parms: {
+      ownMUID    : ownID,
+      memoryID   : memoryID,
+    }
+  });
+}
+function doDisResultCreateBorgMemory(j){
+  console.log(`doDisResultCreateBorgMemory():: `,j);
+  alert(j.html);
+}
+function doDeleteBorgMemory(j){
+  alert('memory deleted');
+  hideDiv('servSidePanel');
 }
 function onFVMetaLoaded() {
   const video = videoFObj;
@@ -792,7 +834,13 @@ function handleResponse(j) {
     doSaveLinkAccountInfo(j);
     getAccountInfo();
   }
-
+  if (j.action === "createBorgMemory"){
+    doDisResultCreateBorgMemory(j);
+  }
+  if (j.action === "deleteBorgMemory"){
+    doDeleteBorgMemory(j);
+  }
+  
   if (j.action === "createAccount") {
     doSaveNewAccountInfo(j);
     getAccountInfo();

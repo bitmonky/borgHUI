@@ -467,10 +467,31 @@ class BorgHUIptreeAPI {
     return this._postJSON("peerMemoryCell", msg);
   }
 
-  async ptreeDeleteMem(muid, memHash) {
-    return this._postJSON("peerMemoryCell", {
-      msg: { req: "removeMemory", memory: { ownMUID: muid, memoryID: memHash, nCopys: 0 } }
-    });
+  async deleteMemory(muid, memoryID) {
+    const token = this.net.wallet.calculateHash(muid+memoryID);
+    const req = {
+      msg : {
+        req      : "removeMemory", 
+        memoryID :  memoryID,
+        sig : {
+          ownMUID   : muid,
+          token     : token,
+          pubKey    : this.net.wallet.publicKey,
+          signature : this.net.wallet.signToken(token)
+        }
+      }
+    };
+
+    let doTry = await this._postJSON("peerMemoryCell",req);
+    console.log(doTry);
+    if (doTry.error === false && doTry.status === 200 && doTry.json.result === 1){
+      doTry = await ptreeDeleteShard(muid, doTry.result.shardID, memoryID);
+      console.log(doTry);
+      if (doTry.error === false && doTry.status === 200 && doTry.json.result === true){
+        return true;
+      }
+    }
+    return false; 
   }
 
   // ------------------------------------------------------------

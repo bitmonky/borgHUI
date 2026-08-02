@@ -634,6 +634,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.doCreateBorgMemory(j,res);
            return;
          }
+         if (j.req === 'deleteBorgMemory'){
+           this.wallet.doDeleteBorgMemory(j,res);
+           return;
+         }
          if (j.req  === 'displayBorgMemory'){
            await this.wallet.doDisplayBorgMemory(j,res);
            return;
@@ -1480,16 +1484,41 @@ class bitMonkyWallet{
      this.net.MStream.doOpenMemStream(memories, service, qry,'dispFull');
 
    }
-   async doCreateBorgMemory(j,res){
-     let memPrompt = this.net.MStream.doStoreMemory(j.memory);
-     console.log(`doCreateBorgMemory():: prompt is `,memPrompt);
+   async doDeleteBorgMemory(j,res){
+     let memoryID = j.parms.memoryID;
+     console.log(`doDeleteBorgMemory():: memory `,memoryID);
+     let doTry = await this.net.PTree.deleteMemory(this.ownMUID,memoryID);
+     console.log(`doDeleteBorgMemory():: doTry`,doTry);
 
-     const p = j.parms
-     j.html   = `memory created`;
+     j.html   = `memory removed`;
      j.result = true;
      j.action = j.req;
-     console.log(`doCreateBorgMemory():: `,j);
+     console.log(`doDeleteBorgMemory():: `,j);
      res.end(JSON.stringify(j));
+   }
+   async doCreateBorgMemory(j,res){
+     j.action = j.req;
+     j.html   = 'memory request is processing borg will notify you when complete';
+     j.result = true;
+
+     res.end(JSON.stringify(j));
+
+     let memPrompt = await this.net.MStream.doStoreMemory(j.memory);
+     console.log(`doCreateBorgMemory():: prompt is `,memPrompt);
+
+     if( memPrompt === null){
+       j.html = 'memory not created';
+       j.result = false;
+     }
+     else if (memPrompt === true){
+       j.html = 'memory created and stored';
+       j.result = true;
+     }
+     else {
+       j.html = 'memory not stored';
+       j.result = true;
+     }
+     this.net.pushEvent('borg-event',{req:"createBorgMemory",error:j.result,msg:j.html});
    }    
    async doSendPeerQryResults(j,res){
      console.log(j);
