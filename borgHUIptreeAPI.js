@@ -468,7 +468,8 @@ class BorgHUIptreeAPI {
   }
 
   async deleteMemory(muid, memoryID) {
-    const token = this.net.wallet.calculateHash(muid+memoryID);
+    const token = this.net.wallet.calculateHash(`${memoryID}-${muid}`);
+    console.log(`const token = this.net.wallet.calculateHash(${memoryID}-${muid}`,token);
     const req = {
       msg : {
         req      : "removeMemory", 
@@ -483,10 +484,11 @@ class BorgHUIptreeAPI {
     };
 
     let doTry = await this._postJSON("peerMemoryCell",req);
-    console.log(doTry);
-    if (doTry.error === false && doTry.status === 200 && doTry.json.result === 1){
-      doTry = await ptreeDeleteShard(muid, doTry.result.shardID, memoryID);
-      console.log(doTry);
+    console.log(`deleteMemory():: doTry`,doTry);
+    if (doTry.error === false && doTry.status === 200 && doTry.json.memRemoveRes === true){
+      console.log(`Trying ptreeDeleteShard(${muid}, ${memoryID},${token})`);
+      doTry = await this.ptreeDeleteShard(muid, memoryID,token);
+      console.log(`deleteMemory():: doTry 2:`,doTry);
       if (doTry.error === false && doTry.status === 200 && doTry.json.result === true){
         return true;
       }

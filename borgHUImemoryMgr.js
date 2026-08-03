@@ -237,7 +237,7 @@ class BorgHUImemoryMgr {
     };
 
     // Try streaming file to the shardTreeCell network.
-    let doTry = await this.net.DStream.streamTo(service);
+    let doTry = await this.net.DStream.streamTo(service,'memoryfile');
     console.log(`doUploadFile():: doTry`,doTry);
     console.log(`doUploadFile():: hashes`,doTry.stream.shardHashes);
 

@@ -191,7 +191,11 @@ class BorgHUIstreamMgr {
     const filename = msg.filename;
     let streamId;
     let shards;
-    
+    let isMemoryFile = false;
+    if (type === 'memoryfile'){
+      type = 'file';
+      isMemoryFile = true;
+    } 
     // CASE 1: File-based stream (deterministic)
     if (type === 'file') {
       streamId = await this.getHash(msg.filename);
@@ -214,6 +218,7 @@ class BorgHUIstreamMgr {
       service,
       streamId,
       filename,
+      isMemFile   : isMemoryFile,
       requestMutex: new Mutex(),
       reqId       : msg.reqId,
       shardSize   : shards.shardSize,
@@ -421,7 +426,11 @@ class BorgHUIstreamMgr {
 
         const shard    = stream.shardHashes[shardIdx];
         const shardId  = shard.hash;
-        const shardHID = this.net.wallet.calculateHash(`${shardId}-${this.net.wallet.ownMUID}-${Date.now()}`);
+        let shardHID = this.net.wallet.calculateHash(`${shardId}-${this.net.wallet.ownMUID}-${Date.now()}`);
+        if (stream.isMemFile){
+          shardHID = this.net.wallet.calculateHash(`${shardId}-${this.net.wallet.ownMUID}`);
+          console.log(`shardHID = this.net.wallet.calculateHash(${shardId}-${this.net.wallet.ownMUID}`,shardHID);
+        }
         const shardSig = this.net.wallet.signToken(shardHID);
         shard.hashHID  = shardHID;
         console.log(`stream shardHashes`,stream.shardHashes[shardIdx]);
