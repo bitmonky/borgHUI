@@ -33,7 +33,7 @@ const {BorgHUIFileMgrUI} = require("./borgHUIFileMgrUI.js");
 const {BorgHUIBorgPay}   = require("./borgHUIBorgPay.js");
 const {borgHUIMnemonic}  = require("./borgHUIMnemonic.js");
 const {BorgHUImemoryMgr} = require("./borgHUImemoryMgr.js");
-
+const {BorgHUIWebSocket} = require("./borgHUIWebSocket.js");
 const maxUpLoadSize = 100000000000; // 1Gig
 
 const { generateKeyPairSync } = require('crypto')
@@ -167,7 +167,7 @@ class BorgPortal {
       return null;
     }
 
-    return {port: this.portals[index].recpPort, nodes:[...this.portals[index].activeNodes]};
+    return {port: this.portals[index].recpPort,wsSoc:this.portals[index].wsPort, nodes:[...this.portals[index].activeNodes]};
   }
   async selectPortal(netName) {
     //console.log(`selectPortal():: `,this.portals);
@@ -280,6 +280,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.PTree      = new BorgHUIptreeAPI(this);
     this.UI         = new BorgHUIFileMgrUI(this);
     this.BPay       = new BorgHUIBorgPay(this);
+    this.wsSoc      = new BorgHUIWebSocket(this);
     this.wallet     = new bitMonkyWallet(this);
     this.wcj        = null; // wallet conf json data; 
     this.borgMasterID = this.getBorgMasterID();
