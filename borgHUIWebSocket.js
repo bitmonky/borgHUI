@@ -50,7 +50,18 @@ class BorgHUIWebSocket extends EventEmitter {
       this.connect();
     }
   }
+  // ============ BorgChat API =====================
+  async doCreateChannel(j){
+    const borgToken = this.net.wallet.getBorgToken();
 
+    this.send({
+      type     : 'req',
+      req      : 'createBorgChannel',
+      data     : j.data,
+      borgToken:  borgToken
+    });
+    return false;
+  }
   // ============ CONNECTION MANAGEMENT ============
 
   connect() {
@@ -212,8 +223,12 @@ class BorgHUIWebSocket extends EventEmitter {
   }
 
   _routeMessage(message) {
-    const type = message.type || 'default';
+    let type = message.type || 'default';
     console.log(`_routeMessage():: `,message);
+    if (type === 'response'){
+      type = message.original.req;
+      console.log(`_routeMessage():: type `,type);
+    }
  
     // Check for registered handlers
     if (this.messageHandlers.has(type)) {
@@ -238,7 +253,7 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'direct_message':
         this._handleDirectMessage(message);
         break;
-      case 'room_created':
+      case 'createBorgChannel':
         this._handleRoomCreated(message);
         break;
       case 'participant_joined':
@@ -275,7 +290,7 @@ class BorgHUIWebSocket extends EventEmitter {
   // ============ MESSAGE HANDLERS ============
 
   _handleWelcome(message) {
-    console.log('👋 Welcome to pBorgIOS Chat Services network');
+    console.log('👋 Welcome to BorgIOS Chat Services network');
     console.log(`Node ID: ${message.nodeId}`);
     console.log(`Client ID: ${message.clientId}`);
     
@@ -321,8 +336,13 @@ class BorgHUIWebSocket extends EventEmitter {
   }
 
   _handleRoomCreated(message) {
-    console.log(`🏠 Room created: ${message.roomId} by ${message.creator}`);
-    this.emit('room_created', message);
+    if (message.original.json.error === 'false'){
+      console.log(`🏠 Room created: ${message.roomId} by ${message.creator}`);
+      this.emit('room_created', message);
+    }
+    else {}
+    this.net.pushEvent('borg-event',{req:"createBorgChannel",error:message.original.json.error,msg:message.original.json.msg});
+     
   }
 
   _handleParticipantJoined(message) {

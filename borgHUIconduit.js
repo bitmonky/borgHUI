@@ -631,7 +631,11 @@ class bitMonkyWSrv extends  EventEmitter {
             this.wallet.doRsaDecodeMsg(j,res);
             return;
          }
-         if (j.req  === 'createBorgMemory'){
+         if (j.req === 'createBorgChannel'){
+           this.wallet.doCreateBorgChannel(j,res);
+           return;
+         }
+         if (j.req === 'createBorgMemory'){
            this.wallet.doCreateBorgMemory(j,res);
            return;
          }
@@ -1497,9 +1501,32 @@ class bitMonkyWallet{
      console.log(`doDeleteBorgMemory():: `,j);
      res.end(JSON.stringify(j));
    }
+   async doCreateBorgChannel(j,res){
+     j.action = j.req;
+     j.html   = 'Create Borg Channel request is processing... The Borg will notify you when complete';
+     j.result = true;
+
+     res.end(JSON.stringify(j));
+
+     let memPrompt = await this.net.wsSoc.doCreateChannel(j);
+     console.log(`doCreateBorgMemory():: prompt is `,memPrompt);
+
+     if( memPrompt === null){
+       j.html = 'Channel not created';
+       j.result = false;
+     }
+     else if (memPrompt === true){
+       j.html = 'Channel created and stored';
+       j.result = true;
+     }
+     else {
+       j.html = 'Channel not stored';
+       j.result = true;
+     }
+   }
    async doCreateBorgMemory(j,res){
      j.action = j.req;
-     j.html   = 'memory request is processing borg will notify you when complete';
+     j.html   = 'Memory request is processing... The borg will notify you when complete';
      j.result = true;
 
      res.end(JSON.stringify(j));

@@ -50,6 +50,10 @@ function handleBorgMsg(msg){
     doUpdateUpload(msg);
     return;
   }
+  if (msg.req === 'createBorgChannel'){
+    alert(msg.msg);
+    return;
+  }
   if (msg.req === 'createBorgMemory'){
     alert(msg.msg);
     return;
@@ -221,6 +225,10 @@ function deleteMemoryFile(ownID,memoryID){
       memoryID   : memoryID,
     }
   });
+}
+function doDisResultCreateBorgChannel(j){
+  console.log(`doDisResultCreateBorgChannel():: `,j);
+  alert(j.html);
 }
 function doDisResultCreateBorgMemory(j){
   console.log(`doDisResultCreateBorgMemory():: `,j);
@@ -519,6 +527,79 @@ function doSendWalletOptions() {
     req: "sendWalletOptions",
     parms: { mode: MODE }
   });
+}
+function createBorgChannel() {
+    // 1. Create the Modal Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'borg-modal-overlay';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 9999; font-family: sans-serif;
+    `;
+    let title = "Create New BorgChat Channel";
+    // 2. Build the Modal Form HTML
+    overlay.innerHTML = `
+        <div style="background: #1e2e1e; border: 2px solid #4caf50; border-radius: 8px; padding: 25px; width: 550px; color: #e0e0e0; box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);">
+            <h3 style="color: #4caf50; margin-top: 0; text-shadow: 0 0 5px rgba(76,175,80,0.5);">${title}</h3>
+
+            <form id="borg-newChan-form" enctype="multipart/form-data">
+                <!-- Visible Inputs -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; margin-bottom: 5px; font-size: 0.9em;">Choose Your Borg Name</label>
+                    <input type="text" name="chanTitle" required style="width: 100%; padding: 8px; background: #0d1a0d; border: 1px solid #4caf50; color: #fff; border-radius: 4px;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; margin-bottom: 5px; font-size: 0.9em;">Description</label>
+                    <textarea name="description" rows="3" style="width: 100%; padding: 8px; background: #0d1a0d; border: 1px solid #4caf50; color: #fff; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+
+                <div ID='uploadSpot'></div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="document.getElementById('borg-modal-overlay').remove()" style="padding: 8px 15px; background: #333; color: #aaa; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 8px 15px; background: #4caf50; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px rgba(76,175,80,0.5);">Assimilate Now</button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // 3. Attach the submit event listener to call doCreateBorgChannel
+
+    const form = document.getElementById('borg-newChan-form');
+    form.addEventListener('submit', async function(e) {
+
+        e.preventDefault(); // Prevent default form submission
+        // Collect form data
+        const formData = new FormData(this);
+
+        // Call the backend logic
+        await doCreateBorgChannel(formData);
+    });
+}
+async function doCreateBorgChannel(formData) {
+    // 1. Extract ONLY the text fields from the FormData object
+    const userMetadata = {
+      title : formData.get('chanTitle'),
+      desc  : formData.get('description'),
+    };
+    console.log(`FormData`,formData);
+    console.log("Extracted Metadata for P2P broadcast:", userMetadata);
+
+    var ranTime = new Date().getMilliseconds();
+
+    sendRequest({
+      req    : "createBorgChannel",
+      data   : userMetadata,
+      xr     : "&xr=" + ranTime
+    });
+
+    // Close the modal on success
+    document.getElementById('borg-modal-overlay').remove();
+    alert("New Channel Assimilation In Progress... Propagating to Borg Collective");
 }
 function openBorgUserEdit(firstTime=true) {
     // 1. Create the Modal Overlay
@@ -833,6 +914,9 @@ function handleResponse(j) {
   if (j.action === "linkAccount") {
     doSaveLinkAccountInfo(j);
     getAccountInfo();
+  }
+  if (j.action === "createBorgChannel"){
+    doDisResultCreateChannel(j);
   }
   if (j.action === "createBorgMemory"){
     doDisResultCreateBorgMemory(j);
