@@ -355,6 +355,9 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
       BorgCom Channel .: 00-1 of 9</br>
       <textarea ID='sideChatInput' style='width:calc(100% - 0em);margin:0px;height:4em;background:none;'></textarea>
     </div>
+    <div ID="borgChatAction" class='mainChat' align="right" style="padding-right:.5em">
+      <input type="button" value="Create Channel" onclick="createBorgChannel();">
+    </div>
     <div ID="borgChatLoading" style="display:none;">
     <div style='padding:.5em;display:inline;height:28px;color:#777777;' ><div class='mkyloader'></div>Assimilating User Input...</div>
     </div>
@@ -452,6 +455,32 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
   color:#888888;
 }
 .container INPUT[type="button"] {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.35) !important;
+  width: auto;
+  margin: 0.5em 0;
+  font-size: 1em;
+  color: white;
+  padding:1px 7px 1px 3px;
+  background-color:#454545;
+  border-radius: .25em;
+  -webkit-border-radius: .25em;
+  -moz-border-radius: .25em;
+  transition: all 300ms ease;
+  border:0;
+  box-shadow:none;
+  text-shadow:none;
+}
+.mainChat {}
+.mainChat INPUT[type="text"] {
+  background: rgba(0, 0, 0, 0.35) !important;
+  color:#888888;
+}
+.mainChat INPUT[type="FILE"] {
+  background: rgba(0, 0, 0, 0.35) !important;
+  color:#888888;
+}
+.mainChat INPUT[type="button"] {
   display: inline-block;
   background: rgba(0, 0, 0, 0.35) !important;
   width: auto;
