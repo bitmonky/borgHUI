@@ -226,7 +226,7 @@ class BorgHUIWebSocket extends EventEmitter {
     let type = message.type || 'default';
     console.log(`_routeMessage():: `,message);
     if (type === 'response'){
-      type = message.original.req;
+      type = message.original.req || message.original.type;
       console.log(`_routeMessage():: type `,type);
     }
  
@@ -252,6 +252,9 @@ class BorgHUIWebSocket extends EventEmitter {
         break;
       case 'direct_message':
         this._handleDirectMessage(message);
+        break;
+      case 'openBorgChannel':
+        this._handleOpenBorgChannel(message);
         break;
       case 'createBorgChannel':
         this._handleRoomCreated(message);
@@ -334,7 +337,9 @@ class BorgHUIWebSocket extends EventEmitter {
     console.log(`📨 Direct message from ${message.from}`);
     this.emit('direct_message', message);
   }
-
+  _handleOpenBorgChannel(msg){
+    this.net.pushEvent('borg-event',{req:"openBorgChannel",msg:msg});
+   }
   _handleRoomCreated(message) {
     if (message.original.json.error === 'false'){
       console.log(`🏠 Room created: ${message.roomId} by ${message.creator}`);
@@ -405,7 +410,7 @@ class BorgHUIWebSocket extends EventEmitter {
       
       const timeoutHandle = setTimeout(() => {
         this.pendingRequests.delete(requestId);
-        reject(new Error('Request timeout'));
+        console.log(`sendWithResponse():: Request timeout`,this.pendingRequests);
       }, timeoutMs);
       
       this.pendingRequests.set(requestId, {
@@ -472,7 +477,7 @@ class BorgHUIWebSocket extends EventEmitter {
 
   sendChatMessage(roomId, content) {
     if (!this.rooms.has(roomId)) {
-      throw new Error('Not in this room');
+      console.log(`Not in this room`);
     }
     
     return this.sendWithResponse({

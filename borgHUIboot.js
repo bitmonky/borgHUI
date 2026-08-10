@@ -17,10 +17,12 @@
  *  RUNTIME STATE
  ************************************************************/
 
-var hasAccount = false;
-var qryAction  = 'not set';
-var borgMUID   = null;
-var videoFObj  = null;
+var hasAccount  = false;
+var qryAction   = 'not set';
+var borgMUID    = null;
+var borgChanId  = null;
+var chatSpot    = null;
+var videoFObj   = null;
 
 var service = {
   host     : SERVICE_HOST,
@@ -50,6 +52,10 @@ function handleBorgMsg(msg){
     doUpdateUpload(msg);
     return;
   }
+  if (msg.req === 'openBorgChannel'){
+    doOpenBorgChannel(msg.msg);
+    return;
+  }
   if (msg.req === 'createBorgChannel'){
     alert(msg.msg);
     return;
@@ -69,6 +75,19 @@ function handleBorgMsg(msg){
     }
     doUpdateFullMemory(msg); 
   }
+}
+function doOpenBorgChannel(msg){
+  const chan = msg.chan;
+  borgChanId = chan.chanID;
+  const title  = document.getElementById('sideChatTitle');
+  if (title) title.innerHTML = chan.title;
+  chatSpot = document.getElementById('wzStreamDisplay'); 
+  chanRollout(chatSpot,chan.chanState);
+  return;
+}
+function chanRollout(div,state){
+  console.log(`chanRollout():: `,state);
+  alert("Welcome To The Borg Space Lounge");
 }
 function doMainSearch(){
   const pg = document.getElementById('mainViewerPg');
@@ -352,12 +371,23 @@ function sendChatMsg(){
   resetTextarea(cbox);
   return;
 }
+function pushChatMsg(msg){
+}
 function resetTextarea(textarea) {
+  const text = textarea.value;
   textarea.value = '';
   textarea.setSelectionRange(0, 0);  // Reset cursor
   textarea.scrollTop = 0;            // Reset scroll position
   textarea.focus();
-  alert('Chat Feature Coming Soon...');
+  const msg = {
+    req : "sendChanChat",
+    msg : {
+      chanID : borgChanId,
+      txt    : text
+    }
+  }
+  console.log(`sideChat.resetTextarea():: `,msg);
+  sendRequest(msg);
 }
 function getBorgTime(){
   console.log(`getBorgTime():: TTTT:TTT:TTTT: `);

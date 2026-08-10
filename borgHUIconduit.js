@@ -635,6 +635,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.doCreateBorgChannel(j,res);
            return;
          }
+         if (j.req === 'sendChanChat'){
+           this.wallet.doSendChanChat(j,res);
+           return;
+         }
          if (j.req === 'createBorgMemory'){
            this.wallet.doCreateBorgMemory(j,res);
            return;
@@ -1499,6 +1503,14 @@ class bitMonkyWallet{
      j.result = true;
      j.action = j.req;
      console.log(`doDeleteBorgMemory():: `,j);
+     res.end(JSON.stringify(j));
+   }
+   async doSendChanChat(j,res){
+     j.action = j.req;
+     j.html   = 'Sending Message To BorgChat Network...';
+     j.result = true;
+     console.log(`doSendChanChat():: `,j);
+     this.net.wsSoc.sendChatMessage(j.msg.chanID, j.msg.txt);
      res.end(JSON.stringify(j));
    }
    async doCreateBorgChannel(j,res){
