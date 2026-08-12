@@ -168,6 +168,67 @@ main > section {
 main > section .container {
   height: 100% !important;
 }
+  .avatar-container {
+        position: relative;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+      }
+      .avatar-img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+      }
+      .avatar-img.hidden {
+        display: none;
+      }
+      .avatar-fallback {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      .avatar-fallback.hidden {
+        display: none;
+      }
+      .chat-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+      }
+      .chat-message:hover {
+        background: rgba(255,255,255,0.05);
+      }
+      .chat-name {
+        font-size: 14px;
+        font-weight: bold;
+        white-space: nowrap;
+      }
+      .chat-text {
+        font-size: 14px;
+        word-break: break-word;
+        flex: 1;
+      }
+      .chat-time {
+        color: #888;
+        font-size: 11px;
+        flex-shrink: 0;
+        margin-left: auto;
+      }
 </style>
 </head>
 <body onload="init();">
