@@ -85,10 +85,145 @@ function doOpenBorgChannel(msg){
   chanRollout(chatSpot,chan.chanState);
   return;
 }
-function chanRollout(div,state){
-  console.log(`chanRollout():: `,state);
+function chanRollout(div, state) {
+  console.log(`chanRollout():: `, state);
   alert("Welcome To The Borg Space Lounge");
+
+  const userMap = Object.fromEntries(state.users.map(u => [u.muid, u]));
+  const display = document.getElementById('wzStreamDisplay');
+
+  // Store state for later use
+  display._userMap = userMap;
+  display._state = state;
+
+  // Render all existing chats
+  display.innerHTML = state.chats.map(chat => renderChatMessage(chat, userMap)).join('');
 }
+
+// Helper function to generate color from muid
+function getColor(muid) {
+  let hash = 0;
+  for (let i = 0; i < muid.length; i++) {
+    hash = muid.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${Math.abs(hash) % 360}, 70%, 55%)`;
+}
+
+// Helper function to get first letter for avatar
+function getInitial(nic) {
+  return nic ? nic.charAt(0).toUpperCase() : '?';
+}
+
+// Helper function to render a single chat message
+function renderChatMessage(chat, userMap) {
+  const user = userMap[chat.from] || {
+    nic: 'Unknown',
+    icon: '',
+    muid: chat.from || 'unknown'
+  };
+
+  const color = getColor(user.muid || chat.from || 'unknown');
+  const initial = getInitial(user.nic);
+  const iconSrc = user.icon || `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+      <circle cx="20" cy="20" r="20" fill="${color}"/>
+      <text x="20" y="28" text-anchor="middle" fill="white" font-size="18" font-family="Arial" font-weight="bold">${initial}</text>
+    </svg>`
+  )}`;
+
+  return `<div class="chat-message">
+    <div class="avatar-container">
+      <img
+        class="avatar-img"
+        src="${iconSrc}"
+        onerror="this.classList.add('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.remove('hidden');"
+        onload="this.classList.remove('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.add('hidden');"
+      >
+      <div class="avatar-fallback ${user.icon ? 'hidden' : ''}" style="background:${color};">
+        ${initial}
+      </div>
+    </div>
+    <span class="chat-name">${user.nic}:</span>
+    <span class="chat-text">${chat.text}</span>
+    <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
+  </div>`;
+}
+
+// Function to append a single new chat message
+function pushNewChat(chat) {
+  const display = document.getElementById('wzStreamDisplay');
+  
+  // Get the userMap from the display element
+  const userMap = display._userMap || {};
+  
+  // Create the new message HTML
+  const newMessageHTML = renderChatMessage(chat, userMap);
+  
+  // Append to existing content
+  display.innerHTML += newMessageHTML;
+  
+  // Optional: Scroll to bottom to show new message
+  display.scrollTop = display.scrollHeight;
+}
+/*
+function chanRollout(div, state) {
+  console.log(`chanRollout():: `, state);
+  alert("Welcome To The Borg Space Lounge");
+  
+  const userMap = Object.fromEntries(state.users.map(u => [u.muid, u]));
+  const display = document.getElementById('wzStreamDisplay');
+  
+  // Simple color generator
+  function getColor(muid) {
+    let hash = 0;
+    for (let i = 0; i < muid.length; i++) {
+      hash = muid.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return `hsl(${Math.abs(hash) % 360}, 70%, 55%)`;
+  }
+  
+  // Get first letter for avatar
+  function getInitial(nic) {
+    return nic ? nic.charAt(0).toUpperCase() : '?';
+  }
+  
+  display.innerHTML = `
+    ${state.chats.map(chat => {
+      const user = userMap[chat.from] || { 
+        nic: 'Unknown', 
+        icon: '',
+        muid: chat.from || 'unknown'
+      };
+      
+      const color = getColor(user.muid || chat.from || 'unknown');
+      const initial = getInitial(user.nic);
+      const iconSrc = user.icon || `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+          <circle cx="20" cy="20" r="20" fill="${color}"/>
+          <text x="20" y="28" text-anchor="middle" fill="white" font-size="18" font-family="Arial" font-weight="bold">${initial}</text>
+        </svg>`
+      )}`;
+      
+      return `<div class="chat-message">
+        <div class="avatar-container">
+          <img 
+            class="avatar-img"
+            src="${iconSrc}" 
+            onerror="this.classList.add('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.remove('hidden');"
+            onload="this.classList.remove('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.add('hidden');"
+          >
+          <div class="avatar-fallback ${user.icon ? 'hidden' : ''}" style="background:${color};">
+            ${initial}
+          </div>
+        </div>
+        <span class="chat-name">${user.nic}:</span>
+        <span class="chat-text">${chat.text}</span>
+        <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
+      </div>`;
+    }).join('')}
+  `;
+}
+*/
 function doMainSearch(){
   const pg = document.getElementById('mainViewerPg');
   if (pg) pg.scrollTo = 0;
@@ -387,6 +522,11 @@ function resetTextarea(textarea) {
     }
   }
   console.log(`sideChat.resetTextarea():: `,msg);
+  pushNewChat({
+    from: borgMUID,
+    text: text,
+    time: Date.now()
+  });
   sendRequest(msg);
 }
 function getBorgTime(){

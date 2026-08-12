@@ -338,15 +338,40 @@ class BorgHUIWebSocket extends EventEmitter {
     this.emit('direct_message', message);
   }
   _handleOpenBorgChannel(msg){
+    console.log(`_handleOpenBorgChannel(msg):: `,msg);
+    const users = msg.chan.chanState.users;
+    const userInfo = [];
+    users.forEach( (user) =>{
+      const u = {muid: user.msubMUID,nic: user.msubBorgNic, icon:  this._buildIcon(user)};
+      userInfo.push(u);
+    });
+    msg.chan.chanState.users = userInfo;
+    console.log(`_handleOpenBorgChannel(msg):: is now ==> `,msg); 
     this.net.pushEvent('borg-event',{req:"openBorgChannel",msg:msg});
+   }
+   _buildIcon(u){
+      let url = 'http:/localhost/'
+      if (u.msubIconFUID) {
+        return `${url}file=${u.msubIconFUID}`;
+      }
+      return `${url}netREQ/msg=%7B"req":"getFileFromRepo","url":"/whzon/bitMiner/getFileFromRepo.php?wzID=DESKTOP&fname=${u.msubIconFName}` +
+             `&rname=${u.msubIconRName}&path=${u.msubIconPath}&ownerMUID=${u.msubMUID}&folderID=${u.msubIconFolder}&encrypt=0","checkSum":"${u.msubIconFCSum}` +
+             `","ftype":"${u.msubIconFType}`;
+
    }
   _handleRoomCreated(message) {
     if (message.original.json.error === 'false'){
       console.log(`🏠 Room created: ${message.roomId} by ${message.creator}`);
       this.emit('room_created', message);
     }
-    else {}
-    this.net.pushEvent('borg-event',{req:"createBorgChannel",error:message.original.json.error,msg:message.original.json.msg});
+    else { 
+     console.log( `🏠 Room create Failed:`,message);
+     return;
+    }
+    console.log(`_handleRoomCreated(message):: `,message);
+    const state = message.original.json.msg;
+    
+    this.net.pushEvent('borg-event',{req:"createBorgChannel",state: state});
      
   }
 

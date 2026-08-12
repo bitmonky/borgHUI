@@ -296,6 +296,10 @@ class BorgHUIptreeAPI {
     const msg = { req: 'qryMyFarms',from : ownMUID};
     return this._postJSON("mailTreeCell",{msg:msg});
   }
+  async mailTreeQryBorgUserProfile(userMUID){
+    const msg = { req: 'findUserProfile',ownMUID: userMUID};
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
   async mailTreeRegisterMyFarmIp(ownMUID,farmIp){
     const msg = { req: 'registerMyFarm',farmerFIP: farmIp};
     return this._postJSON("mailTreeCell",{msg:msg});
