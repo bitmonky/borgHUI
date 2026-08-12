@@ -247,7 +247,7 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'auth_failed':
         this._handleAuthFailed(message);
         break;
-      case 'chat_message':
+      case 'pushBorgChat':
         this._handleChatMessage(message);
         break;
       case 'direct_message':
@@ -320,16 +320,17 @@ class BorgHUIWebSocket extends EventEmitter {
   }
 
   _handleChatMessage(message) {
-    const { roomId, chatMessage } = message;
+    const { chanId, chatMessage } = message;
     
-    console.log(`💬 Chat message in ${roomId} from ${chatMessage.from}`);
+    console.log(`💬 Chat message in ${chanId} from ${chatMessage.from}`);
     
     // Store in local history
-    if (!this.roomHistory.has(roomId)) {
-      this.roomHistory.set(roomId, []);
+    if (!this.roomHistory.has(chanId)) {
+      this.roomHistory.set(chanId, []);
     }
-    this.roomHistory.get(roomId).push(chatMessage);
-    
+    this.roomHistory.get(chanId).push(chatMessage);
+    this.net.pushEvent('borg-event',{req:"postNewBorgChat",chanId:chanId,chat:chatMessage});
+     
     this.emit('chat_message', message);
   }
 

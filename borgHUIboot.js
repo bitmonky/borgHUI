@@ -52,6 +52,10 @@ function handleBorgMsg(msg){
     doUpdateUpload(msg);
     return;
   }
+  if (msg.req === 'postNewBorgChat'){
+    doPostNewBorgChat(msg);
+    return;
+  }
   if (msg.req === 'openBorgChannel'){
     doOpenBorgChannel(msg.msg);
     return;
@@ -74,6 +78,12 @@ function handleBorgMsg(msg){
       return;
     }
     doUpdateFullMemory(msg); 
+  }
+}
+function doPostNewBorgChat(msg){
+  console.log(`doPostNewBorgChat(msg):: `,msg);
+  if (msg.chanId === borgChanId){
+    pushNewChat(msg.chat);
   }
 }
 function doOpenBorgChannel(msg){
@@ -117,7 +127,7 @@ function getInitial(nic) {
 // Helper function to render a single chat message
 function renderChatMessage(chat, userMap) {
   const user = userMap[chat.from] || {
-    nic: 'Unknown',
+    nic: chat.from,
     icon: '',
     muid: chat.from || 'unknown'
   };
@@ -143,7 +153,7 @@ function renderChatMessage(chat, userMap) {
         ${initial}
       </div>
     </div>
-    <span class="chat-name">${user.nic}:</span>
+    <span class="chat-name">${user.nic} :. </span>
     <span class="chat-text">${chat.text}</span>
     <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
   </div>`;
@@ -216,7 +226,7 @@ function chanRollout(div, state) {
             ${initial}
           </div>
         </div>
-        <span class="chat-name">${user.nic}:</span>
+        <span class="chat-name">${user.nic} :. </span>
         <span class="chat-text">${chat.text}</span>
         <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
       </div>`;

@@ -1434,14 +1434,36 @@ class bitMonkyWallet{
        this.net.wcj.borgReg = true;
        console.log(`doUpdateBorgRegistry():: `,this.net.wcj.borgReg);
        // Persist to disk
-       fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-         if (err){
-           console.log(`doUpdateMyIcon():: updateWallet.conf:: `,err);
-         }
-       });
+       await this.updateWConf(wconf,JSON.stringify(this.net.wcj));
        return true;
      }
      return false;
+   }
+   async updateWConf(data) {
+     const tempFile = `${wconf}.tmp`;
+     const newContent = JSON.stringify(this.net.wcj);
+  
+     try {
+       // Step 1: Write to temp file
+       await fs.promises.writeFile(tempFile, newContent, { flag: 'w' });
+    
+       // Step 2: Rename temp to target (atomic operation)
+       await fs.promises.rename(tempFile, wconf);
+    
+       console.log(`updateWConf():: file updated successfully`);
+       return true;
+    
+     } catch (err) {
+       console.log(`updateWConf():: update failed:: `, err);
+    
+       // Clean up temp file if it exists
+       try {
+         await fs.promises.unlink(tempFile);
+       } catch (cleanErr) {
+         // Ignore cleanup errors
+       }
+       return false;
+     }
    }
    async doSendBorgChatMsg(j,res){
      console.log(`doSendBorgChatMsg():: `,j);
@@ -1706,14 +1728,12 @@ class bitMonkyWallet{
      if (doTry ) this.net.wcj.borgReg = true;
        
      // Persist to disk
-     fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-       if (err){
-         console.log(`doUpdateMyIcon():: updateWallet.conf:: `,err);
-         j.result = false;
-         j.msg    = `Failed To Save... Try Again Please`;
-       } 
+     if (await this.updateWConf(wconf,JSON.stringify(this.net.wcj)) === false){
+       j.result = false;
+       j.msg    = `Failed To Save... Try Again Please`;
+     } else {
        this.net.icon = newIcon;
-     });
+     }
 
      j.response = j.msg;
      console.log(`doUpdateMyIcon():: final`,j);
@@ -1743,15 +1763,12 @@ class bitMonkyWallet{
 
 
      // Persist to disk
-     fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-       if (err){
-         console.log(`updateWallet.conf:: `,err);
-         j.result = false;
-         j.msg    = `Failed To Save... Try Again Please`;
-         return;
-       }
-       this.net.readConfigFile();
-     });
+     if (await this.updateWConf(wconf,JSON.stringify(this.net.wcj)) === false){
+       j.result = false;
+       j.msg    = `Failed To Save... Try Again Please`;
+       return;
+     }
+     this.net.readConfigFile();
 
      j.response = j.msg;
      j.action   = 'updateAccount';
@@ -1770,13 +1787,10 @@ class bitMonkyWallet{
      j.msg    = 'Account Updated';
 
      // Persist to disk
-     fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-       if (err){
-         console.log(`updateWallet.conf:: `,err);
-         j.result = false;
-         j.msg    = `Failed To Save... Try Again Please`;
-       }
-     });
+     if (await this.updateWConf(wconf,JSON.stringify(this.net.wcj)) === false){
+       j.result = false;
+       j.msg    = `Failed To Save... Try Again Please`;
+     }
 
      j.response = j.msg;
 
@@ -1794,9 +1808,7 @@ class bitMonkyWallet{
          if (j.result === "tranOK"){
            this.net.wcj.openBal = true;
            // Persist to disk
-           fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-             if (err) console.log(`updateWallet.conf:: `,err);
-           });
+           await this.updateWConf(wconf,JSON.stringify(this.net.wcj));
          }
        } catch(e){
          console.log(`doCreateOpeningBalance():: JSON er`,e);
@@ -1810,9 +1822,7 @@ class bitMonkyWallet{
      console.log(`doCreateNewUserRootRepo():: newRepo`,newRepo);   
      if (newRepo && newRepo?.error === false && newRepo?.json?.result === 'repoOK'){
        this.net.wcj.userRoot = true;
-       fs.writeFile(wconf, JSON.stringify(this.net.wcj), { flag: 'w' }, err => {
-         if (err) console.log(`updateWallet.conf:: `,err);
-       });
+       await this.updateWConf(wconf,JSON.stringify(this.net.wcj));
        console.log(`doCreateNewUserRootRepo():: MyFiles repo created`);
        return;
      }     
