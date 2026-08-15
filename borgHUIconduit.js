@@ -414,6 +414,11 @@ class bitMonkyWSrv extends  EventEmitter {
        return;
      }
      
+     if (req.method === 'GET' && pathname === '/html/borgHUI.css') {
+       res.setHeader('Content-Type', 'text/css');
+       fs.createReadStream('html/borgHUI.css').pipe(res);
+       return;
+     }
      if (req.method === 'GET' && pathname === '/favicon.ico') {
        res.setHeader('Content-Type', 'image/x-icon');
        fs.createReadStream('favicon.ico').pipe(res);
