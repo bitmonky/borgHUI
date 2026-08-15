@@ -148,5 +148,6 @@ class SecureMnemonicStorage {
 module.exports = {
   privateKeyToMnemonic,
   mnemonicToPrivateKey,
+  SecureMnemonicStorage,
 };
 
