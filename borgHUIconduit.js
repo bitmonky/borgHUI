@@ -31,7 +31,8 @@ const {BorgHUIstreamMgr} = require('./borgHUIstreamMgr.js');
 const {BorgHUIptreeAPI}  = require("./borgHUIptreeAPI.js");
 const {BorgHUIFileMgrUI} = require("./borgHUIFileMgrUI.js");
 const {BorgHUIBorgPay}   = require("./borgHUIBorgPay.js");
-const {borgHUIMnemonic}  = require("./borgHUIMnemonic.js");
+const borgMnemonic       = require("./borgHUIMnemonic.js");
+const {SecureMnemonicStorage} = borgMnemonic;
 const {BorgHUImemoryMgr} = require("./borgHUImemoryMgr.js");
 const {BorgHUIWebSocket} = require("./borgHUIWebSocket.js");
 const maxUpLoadSize = 100000000000; // 1Gig
@@ -42,6 +43,62 @@ const sanitize = require('sanitize-filename');
 
 const baseDir = path.join(__dirname, 'uploads');
 const allowedExtensions = ['.jpg', '.png', '.txt'];
+
+const WALLET_VERSION = 3;
+
+// Reads a passphrase without echoing it. Synchronous so it can run from the
+// wallet constructor. Returns null when there is no terminal to read from.
+function readHiddenLine(prompt) {
+  if (!process.stdin.isTTY) return null;
+
+  process.stdout.write(prompt);
+
+  const wasRaw = process.stdin.isRaw;
+  process.stdin.setRawMode(true);
+
+  const buf = Buffer.alloc(1);
+  let line = '';
+  try {
+    for (;;) {
+      let read = 0;
+      try {read = fs.readSync(process.stdin.fd, buf, 0, 1, null);}
+      catch (err) {
+        if (err.code === 'EAGAIN') continue;
+        throw err;
+      }
+      if (read === 0) break;
+
+      const ch = buf.toString('utf8');
+      if (ch === '\n' || ch === '\r' || ch === '\u0004') break;
+      if (ch === '\u0003') {process.stdout.write('\n'); process.exit(130);}
+      if (ch === '\u0008' || ch === '\u007f') {
+        if (line.length) {line = line.slice(0, -1); process.stdout.write('\b \b');}
+        continue;
+      }
+      line += ch;
+      process.stdout.write('*');
+    }
+  }
+  finally {
+    process.stdin.setRawMode(wasRaw);
+    process.stdout.write('\n');
+  }
+  return line;
+}
+
+// Passphrase precedence: environment, then terminal prompt.
+function envPassphrase() {
+  const p = process.env.BORGHUI_WALLET_PASSPHRASE;
+  return (typeof p === 'string' && p.length > 0) ? p : null;
+}
+
+function plaintextWalletWarning() {
+  console.log('');
+  console.log('!! WALLET IS NOT ENCRYPTED ON DISK !!');
+  console.log(`!! ${wfile} holds your private key in clear text.`);
+  console.log('!! Set BORGHUI_WALLET_PASSPHRASE, or start borgHUI from a terminal to set a passphrase.');
+  console.log('');
+}
 
 function deriveFileKey(masterKey) {
   return crypto.hkdfSync(
@@ -727,9 +784,40 @@ class bitMonkyWSrv extends  EventEmitter {
        res.end("JSON PARSE Errors: \n\n"+msg+"\n\n"+err);
      }
   }
+  sendJSON(res, status, body) {
+    const payload = JSON.stringify(body);
+    res.writeHead(status, {'Content-Type':'application/json','Content-Length':Buffer.byteLength(payload)});
+    res.end(payload);
+  }
+  readJSONBody(req) {
+    return new Promise((resolve, reject) => {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 65536) {req.destroy(); reject(new Error('Request body too large'));}
+      });
+      req.on('end', () => {
+        if (!body) return resolve({});
+        try {resolve(JSON.parse(body));}
+        catch {reject(new Error('Invalid JSON body'));}
+      });
+      req.on('error', reject);
+    });
+  }
+  // The mnemonic reconstructs the identity, so exporting or replacing it
+  // requires the wallet passphrase. An unencrypted wallet has no passphrase to
+  // check, so those routes stay closed unless the operator opts in.
+  verifyAuth(req) {
+    if (!this.wallet.passphrase) return process.env.BORGHUI_ALLOW_UNPROTECTED_EXPORT === '1';
+    return this.wallet.passphraseMatches(req.headers['x-borg-wallet-pass']);
+  }
   async handleRestoreWallet(req, res) {
     try {
-        const { mnemonic } = req.body;
+        if (!this.verifyAuth(req)) {
+            return this.sendJSON(res, 401, {success:false, error:'Wallet passphrase required'});
+        }
+
+        const { mnemonic } = await this.readJSONBody(req);
 
         if (!mnemonic) {
             throw new Error('Mnemonic phrase required');
@@ -738,20 +826,20 @@ class bitMonkyWSrv extends  EventEmitter {
         const result = this.wallet.restoreFromMnemonic(mnemonic);
 
         if (result.success) {
-            res.json({
+            this.sendJSON(res, 200, {
                 success: true,
                 muid: result.muid,
                 publicKey: result.publicKey,
                 message: 'Wallet restored successfully'
             });
         } else {
-            res.status(400).json({
+            this.sendJSON(res, 400, {
                 success: false,
                 error: result.error
             });
         }
     } catch (error) {
-        res.status(400).json({
+        this.sendJSON(res, 400, {
             success: false,
             error: error.message
         });
@@ -761,20 +849,18 @@ class bitMonkyWSrv extends  EventEmitter {
   // Handle mnemonic export
   async handleExportMnemonic(req, res) {
     try {
-        // Verify authentication first
-        const token = req.headers.authorization;
-        if (!this.verifyAuth(token)) {
-            throw new Error('Authentication required');
+        if (!this.verifyAuth(req)) {
+            return this.sendJSON(res, 401, {success:false, error:'Wallet passphrase required'});
         }
 
         const mnemonic = this.wallet.getMnemonic();
-        res.json({
+        this.sendJSON(res, 200, {
             success: true,
             mnemonic,
             warning: 'Store this mnemonic securely! It can restore your entire identity.'
         });
     } catch (error) {
-        res.status(401).json({
+        this.sendJSON(res, 500, {
             success: false,
             error: error.message
         });
@@ -783,16 +869,16 @@ class bitMonkyWSrv extends  EventEmitter {
   // Handle mnemonic verification
   async handleVerifyMnemonic(req, res) {
     try {
-        const { mnemonic } = req.body;
+        const { mnemonic } = await this.readJSONBody(req);
         const isValid = this.wallet.verifyMnemonic(mnemonic);
 
-        res.json({
+        this.sendJSON(res, 200, {
             success: true,
             isValid,
             message: isValid ? 'Mnemonic matches wallet' : 'Mnemonic does not match wallet'
         });
     } catch (error) {
-        res.status(400).json({
+        this.sendJSON(res, 400, {
             success: false,
             error: error.message
         });
@@ -1155,6 +1241,8 @@ class bitMonkyWallet{
       this.signingKey  = null;
       this.rsaKeys     = null;
       this.newWallet   = null;
+      this.mnemonic    = null;
+      this.passphrase  = null;   // in memory only, never written to disk
       this.openWallet();
             
    }
@@ -1191,97 +1279,93 @@ class bitMonkyWallet{
       catch {console.log('no wallet file found');}
       this.publicKey = null;
       if (keypair){
-        try {
-          const pair = keypair.toString();
-          const j = JSON.parse(pair);
-          this.publicKey     = j.publicKey;
-          this.privateKey    = j.privateKey;
-          this.ownMUID       = j.ownMUID;
-          this.walletCipher  = j.walletCipher;
-          if (j.rsaKeys)
-            this.rsaKeys       = j.rsaKeys;
-          else {
-            const rsaMail = new mkyRSAMail(this.walletCipher);
-            this.rsaKeys = rsaMail.generateKeys();
-            this.writeWallet();
-          }  
-          this.signingKey    = ec.keyFromPrivate(this.privateKey);
+        let record = null;
+        try {record = JSON.parse(keypair.toString());}
+        catch(err) {console.log('wallet file not valid', err);process.exit();}
+
+        if (record.encrypted) {
+          record = this.unlockWalletFile(record);
         }
-        catch(err) {console.log('wallet file not valid', err);process.exit();
+        else {
+          this.passphrase = this.resolvePassphrase({confirm:true, migrate:true});
         }
+
+        try {this.loadWalletRecord(record);}
+        catch(err) {console.log('wallet file not valid', err);process.exit();}
+
+        // Rewrite when the on-disk form is out of date: legacy plaintext file
+        // that now has a passphrase, or a record missing its RSA mail keys.
+        if (record.version !== WALLET_VERSION || !record.rsaKeys) this.writeWallet();
+        if (!this.passphrase) plaintextWalletWarning();
       }
       else {
-        const key       = ec.genKeyPair();
-        this.publicKey  = key.getPublic('hex');
-        this.privateKey = key.getPrivate('hex');
-
-        this.signingKey = ec.keyFromPrivate(this.privateKey);
-
-        console.log('Generate a new wallet key pair and convert them to hex-strings');
-
-        let mkybc = bitcoin.payments.p2pkh({ pubkey: Buffer.from(this.publicKey, 'hex')});
-        this.ownMUID = mkybc.address;
-
-        // Derive cipher key deterministically from private key
-        const cipherSeed = this.calculateHash(this.privateKey); // 32-byte hash
-        const pmc = ec.keyFromPrivate(cipherSeed);
-        this.pmCipherKey = pmc.getPublic('hex');
-
-        console.log('Derive wallet cipher key from private key');
-
-        mkybc = bitcoin.payments.p2pkh({ pubkey: Buffer.from(this.pmCipherKey, 'hex')});
-        this.walletCipher = mkybc.address;
-        this.fileKey = deriveFileKey(this.privateKey);
-
-        // RSA mail identity tied to walletCipher
-        const rsaMail = new mkyRSAMail(this.walletCipher);
-        this.rsaKeys = rsaMail.generateKeys();
-
-        this.writeWallet();
-        this.newWallet = true;  
+        this.passphrase = this.resolvePassphrase({confirm:true, create:true});
+        this.generateNewWallet();
       }
    }
-   openWallet_nem() {
-        var keypair = null;
+   // Rebuilds the in-memory wallet from a decrypted (or legacy plaintext) record.
+   loadWalletRecord(j){
+      if (!j.privateKey) throw new Error('wallet record has no private key');
+
+      this.publicKey    = j.publicKey;
+      this.privateKey   = j.privateKey;
+      this.ownMUID      = j.ownMUID;
+      this.walletCipher = j.walletCipher;
+      this.signingKey   = ec.keyFromPrivate(this.privateKey);
+
+      const cipherSeed = this.calculateHash(this.privateKey);
+      this.pmCipherKey = ec.keyFromPrivate(cipherSeed).getPublic('hex');
+      this.fileKey     = deriveFileKey(this.privateKey);
+
+      if (j.rsaKeys) this.rsaKeys = j.rsaKeys;
+      else {
+        const rsaMail = new mkyRSAMail(this.walletCipher);
+        this.rsaKeys = rsaMail.generateKeys();
+      }
+      console.log(`Wallet loaded: ${this.ownMUID}`);
+   }
+   // Asks for the passphrase that protects the wallet file. Returns null when
+   // no passphrase is available, in which case the wallet stays in clear text.
+   resolvePassphrase(opts = {}){
+      const fromEnv = envPassphrase();
+      if (fromEnv) return fromEnv;
+      if (!process.stdin.isTTY) return null;
+
+      if (opts.create)  console.log('Set a passphrase to encrypt your wallet on disk (blank to skip).');
+      if (opts.migrate) console.log(`${wfile} is stored in clear text. Set a passphrase to encrypt it (blank to skip).`);
+
+      const pass = readHiddenLine('Wallet passphrase: ');
+      if (!pass) return null;
+
+      if (opts.confirm) {
+        const again = readHiddenLine('Confirm passphrase: ');
+        if (again !== pass) {
+          console.log('Passphrases do not match.');
+          return this.resolvePassphrase(opts);
+        }
+      }
+      return pass;
+   }
+   // Decrypts a v3 wallet file, asking for the passphrase until it opens.
+   unlockWalletFile(record){
+      const store = new SecureMnemonicStorage(this);
+      let pass = envPassphrase();
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (!pass) pass = readHiddenLine('Wallet passphrase: ');
+        if (!pass) break;
         try {
-            keypair = fs.readFileSync(wfile);
-        } catch {
-            console.log('No wallet file found');
+          const secrets = JSON.parse(store.decryptMnemonic(record, pass));
+          this.passphrase = pass;
+          return Object.assign({}, record, secrets);
         }
-
-        this.publicKey = null;
-
-        if (keypair) {
-            try {
-                const pair = keypair.toString();
-                const j = JSON.parse(pair);
-                this.publicKey = j.publicKey;
-                this.privateKey = j.privateKey;
-                this.ownMUID = j.ownMUID;
-                this.walletCipher = j.walletCipher;
-                this.mnemonic = j.mnemonic || null;  // Load mnemonic if saved
-
-                if (j.rsaKeys) {
-                    this.rsaKeys = j.rsaKeys;
-                } else {
-                    const rsaMail = new mkyRSAMail(this.walletCipher);
-                    this.rsaKeys = rsaMail.generateKeys();
-                    this.writeWallet();
-                }
-
-                this.signingKey = ec.keyFromPrivate(this.privateKey);
-                console.log(`✅ Wallet loaded: ${this.ownMUID}`);
-                if (this.mnemonic) {
-                    console.log('🔑 Mnemonic backup available');
-                }
-            } catch(err) {
-                console.log('Wallet file not valid', err);
-                process.exit();
-            }
-        } else {
-            // Generate new wallet
-            this.generateNewWallet();
+        catch {
+          console.log('Wrong passphrase for ' + wfile);
+          pass = null;
         }
+      }
+      console.log('Unable to unlock wallet.');
+      process.exit(1);
    }
    // New method: Generate new wallet with mnemonic
    generateNewWallet() {
@@ -1379,29 +1463,13 @@ class bitMonkyWallet{
             };
         }
    }
-   writeWallet_nem() {
-        const wallet = {
-            ownMUID: this.ownMUID,
-            publicKey: this.publicKey,
-            privateKey: this.privateKey,
-            walletCipher: this.walletCipher,
-            rsaKeys: this.rsaKeys,
-            mnemonic: this.mnemonic,  // Save mnemonic
-            created: Date.now(),
-            version: '2.0'  // Version bump
-        };
-
-        fs.writeFileSync(wfile, JSON.stringify(wallet, null, 2));
-        console.log('💾 Wallet saved with mnemonic backup');
-   }
-
    // New method: Export mnemonic
    getMnemonic() {
         if (!this.mnemonic) {
-            // Generate from existing private key
+            // The mnemonic is a reversible encoding of the private key, so it is
+            // derived on demand rather than stored.
             const privateKeyBuffer = Buffer.from(this.privateKey, 'hex');
             this.mnemonic = borgMnemonic.privateKeyToMnemonic(privateKeyBuffer);
-            this.writeWallet();
         }
         return this.mnemonic;
    }
@@ -2175,11 +2243,36 @@ class bitMonkyWallet{
     });
   }
   writeWallet(){
-     var wallet = '{"ownMUID":"'+ this.ownMUID+'","publicKey":"' + this.publicKey + '","privateKey":"' + this.privateKey + '",';
-     wallet += '"walletCipher":"'+this.walletCipher+'","rsaKeys":'+JSON.stringify(this.rsaKeys)+'}';
-     console.log(wallet);
+     const secrets = {
+       privateKey   : this.privateKey,
+       walletCipher : this.walletCipher,
+       rsaKeys      : this.rsaKeys
+     };
+     const record = {
+       version   : WALLET_VERSION,
+       ownMUID   : this.ownMUID,
+       publicKey : this.publicKey,
+       created   : Date.now()
+     };
 
-     fs.writeFileSync(wfile, wallet);
+     if (this.passphrase) {
+       const store = new SecureMnemonicStorage(this);
+       Object.assign(record, store.encryptMnemonic(JSON.stringify(secrets), this.passphrase));
+     }
+     else {
+       Object.assign(record, secrets);
+     }
+
+     fs.writeFileSync(wfile, JSON.stringify(record, null, 2), {mode:0o600});
+     console.log(this.passphrase ? 'Wallet saved (encrypted).' : 'Wallet saved (NOT encrypted).');
+   }
+   // Constant-time check of a passphrase supplied by the local UI.
+   passphraseMatches(candidate){
+     if (!this.passphrase || typeof candidate !== 'string') return false;
+     const a = Buffer.from(this.passphrase, 'utf8');
+     const b = Buffer.from(candidate, 'utf8');
+     if (a.length !== b.length) return false;
+     return crypto.timingSafeEqual(a, b);
    }
    getRsaMailObj(){
      if (!this.rsaMail){
