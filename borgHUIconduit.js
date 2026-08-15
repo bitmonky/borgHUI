@@ -44,6 +44,44 @@ const sanitize = require('sanitize-filename');
 const baseDir = path.join(__dirname, 'uploads');
 const allowedExtensions = ['.jpg', '.png', '.txt'];
 
+// The conduit signs every request it forwards with the user's key, so anything
+// able to reach it acts as the user. Only the BorgIOS UI this process served is
+// allowed to drive it: a page on any other origin can still point a link, image,
+// script or form at http://localhost, and the browser tells us so.
+const LOCAL_ORIGINS = new Set([
+  'http://localhost', `http://localhost:${port}`,
+  'http://127.0.0.1', `http://127.0.0.1:${port}`
+]);
+
+function headerOrigin(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin === 'null' ? null : origin;
+
+  const referer = req.headers.referer;
+  if (!referer) return undefined;
+  try {return new URL(referer).origin;}
+  catch {return null;}
+}
+
+// Returns true when the request came from the served UI, false when it came from
+// somewhere else. Sec-Fetch-Site is set by the browser itself and cannot be
+// forged by page script, so it is the primary signal; Origin/Referer cover
+// clients that omit it.
+function isUIRequest(req, isIndexDoc) {
+  const site = req.headers['sec-fetch-site'];
+  const origin = headerOrigin(req);
+
+  if (origin === null) return false;                    // opaque or unparsable
+  if (origin !== undefined) return LOCAL_ORIGINS.has(origin);
+
+  if (site === 'same-origin') return true;
+  if (site && site !== 'none') return false;            // cross-site, same-site
+
+  // 'none' is a typed URL or a bookmark, and a missing header is a non-browser
+  // client. Only the index document is reachable either way.
+  return isIndexDoc;
+}
+
 const WALLET_VERSION = 3;
 
 // Reads a passphrase without echoing it. Synchronous so it can run from the
@@ -340,6 +378,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.wsSoc      = new BorgHUIWebSocket(this);
     this.wallet     = new bitMonkyWallet(this);
     this.wcj        = null; // wallet conf json data; 
+    this.uiToken    = crypto.randomBytes(32).toString('hex');
     this.borgMasterID = this.getBorgMasterID();
     this.clockPulse = 60*1000;
     this.init();
@@ -364,11 +403,24 @@ class bitMonkyWSrv extends  EventEmitter {
    
     this.srv = webCon.createServer( async (req, res) => {
      var pathname = url.parse(req.url).pathname;
+
+     const isIndexDoc = req.method === 'GET' && (pathname === '/' || pathname === '/index.html');
+     if (!isUIRequest(req, isIndexDoc)) {
+       console.log('blocked foreign-origin request:', req.method, pathname,
+                   'origin:', req.headers.origin || req.headers.referer || 'none',
+                   'sec-fetch-site:', req.headers['sec-fetch-site'] || 'none');
+       res.writeHead(403, {'Content-Type':'text/plain'});
+       res.end('BorgHUI conduit accepts requests from the BorgIOS UI only.\n');
+       return;
+     }
      
      if (req.method === 'GET' && pathname === '/favicon.ico') {
        res.setHeader('Content-Type', 'image/x-icon');
        fs.createReadStream('favicon.ico').pipe(res);
        return;
+     }
+     if (req.method === 'GET' && pathname === '/borgUIToken') {
+       return this.sendJSON(res, 200, {uiToken: this.uiToken});
      }
      if (req.method === 'POST' && pathname === '/api/wallet/restore') {
        return this.handleRestoreWallet(req, res);
@@ -509,6 +561,7 @@ class bitMonkyWSrv extends  EventEmitter {
 
             readStream.on('end', () => {
               fileContent = fileContent.replace(/<BORG_PORTAL>/g, this.webPortal); 
+              fileContent = fileContent.replace(/<head>/i, `<head>\n<script>window.BORG_UI_TOKEN=${JSON.stringify(this.uiToken)};</script>`);
               res.end(fileContent);
             });
 
@@ -808,8 +861,19 @@ class bitMonkyWSrv extends  EventEmitter {
   // requires the wallet passphrase. An unencrypted wallet has no passphrase to
   // check, so those routes stay closed unless the operator opts in.
   verifyAuth(req) {
+    if (!this.verifyUIToken(req)) return false;
     if (!this.wallet.passphrase) return process.env.BORGHUI_ALLOW_UNPROTECTED_EXPORT === '1';
     return this.wallet.passphraseMatches(req.headers['x-borg-wallet-pass']);
+  }
+  // Second gate for the wallet routes: a token minted per run and handed only to
+  // the page this process served, so another local process cannot reach them
+  // even though it can bind the same loopback origin headers.
+  verifyUIToken(req) {
+    const sent = req.headers['x-borg-ui-token'];
+    if (typeof sent !== 'string') return false;
+    const a = Buffer.from(sent);
+    const b = Buffer.from(this.uiToken);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
   }
   async handleRestoreWallet(req, res) {
     try {
