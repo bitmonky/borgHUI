@@ -56,6 +56,10 @@ function handleBorgMsg(msg){
     doPostNewBorgChat(msg);
     return;
   }
+  if (msg.req === 'addNewChannelUser'){
+    doAddNewChannelUser(msg.msg);
+    return;
+  }
   if (msg.req === 'openBorgChannel'){
     doOpenBorgChannel(msg.msg);
     return;
@@ -80,6 +84,9 @@ function handleBorgMsg(msg){
     doUpdateFullMemory(msg); 
   }
 }
+function doAddNewChannelUser(msg){
+  console.log(`doAddNewChannelUser(msg):: `,msg,display._userMap);
+}
 function doPostNewBorgChat(msg){
   console.log(`doPostNewBorgChat(msg):: `,msg);
   if (msg.chanId === borgChanId){
@@ -92,6 +99,12 @@ function doOpenBorgChannel(msg){
   const title  = document.getElementById('sideChatTitle');
   if (title) title.innerHTML = chan.title;
   chatSpot = document.getElementById('wzStreamDisplay'); 
+  chatSpot.style.height = 'calc(66vh)';
+  chatSpot.style.overflowY = 'auto';
+
+  if (chatStatus === 'closed'){
+    showSideChat();
+  }
   chanRollout(chatSpot,chan.chanState);
   return;
 }
@@ -108,8 +121,13 @@ function chanRollout(div, state) {
 
   // Render all existing chats
   display.innerHTML = state.chats.map(chat => renderChatMessage(chat, userMap)).join('');
+  scrollChatToBottom();
 }
-
+function scrollChatToBottom() {
+    console.log(`scrollChatToBottom():: `);
+    const container = document.getElementById('wzStreamDisplay');
+    container.scrollTop = container.scrollHeight;
+}
 // Helper function to generate color from muid
 function getColor(muid) {
   let hash = 0;
@@ -131,7 +149,7 @@ function renderChatMessage(chat, userMap) {
     icon: '',
     muid: chat.from || 'unknown'
   };
-
+  console.log(`renderChatMessage():: icon`,user.icon);
   const color = getColor(user.muid || chat.from || 'unknown');
   const initial = getInitial(user.nic);
   const iconSrc = user.icon || `data:image/svg+xml,${encodeURIComponent(
@@ -140,20 +158,20 @@ function renderChatMessage(chat, userMap) {
       <text x="20" y="28" text-anchor="middle" fill="white" font-size="18" font-family="Arial" font-weight="bold">${initial}</text>
     </svg>`
   )}`;
-
   return `<div class="chat-message">
     <div class="avatar-container">
       <img
         class="avatar-img"
-        src="${iconSrc}"
+        src='${iconSrc}'
         onerror="this.classList.add('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.remove('hidden');"
         onload="this.classList.remove('hidden'); this.parentElement.querySelector('.avatar-fallback').classList.add('hidden');"
+
       >
       <div class="avatar-fallback ${user.icon ? 'hidden' : ''}" style="background:${color};">
         ${initial}
       </div>
     </div>
-    <span class="chat-name">${user.nic} :. </span>
+    <span class="chat-name">${user.nic.slice(0,18)} :. </span>
     <span class="chat-text">${chat.text}</span>
     <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
   </div>`;
@@ -226,7 +244,7 @@ function chanRollout(div, state) {
             ${initial}
           </div>
         </div>
-        <span class="chat-name">${user.nic} :. </span>
+        <span class="chat-name">${user.nic.slice(0,18)} :. </span>
         <span class="chat-text">${chat.text}</span>
         <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
       </div>`;

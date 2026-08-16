@@ -16,7 +16,7 @@ class BorgHUIWebSocket extends EventEmitter {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = config.maxReconnectAttempts || 10;
     this.reconnectDelay = config.reconnectDelay || 5000;
-    
+    this.isRedirect = false;
     // WebSocket connection
     this.ws = null;
 
@@ -152,7 +152,7 @@ class BorgHUIWebSocket extends EventEmitter {
     // Heartbeat received
   }
 
-  _scheduleReconnect() {
+  _scheduleReconnect(redirect=false) {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnect attempts reached');
       this.emit('reconnect_failed');
@@ -160,8 +160,14 @@ class BorgHUIWebSocket extends EventEmitter {
     }
 
     this.reconnectAttempts++;
-    const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 30000);
-    
+    let delay = 0;
+    if (redirect === false){
+      delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 30000);
+      const randomIndex = Math.floor(Math.random() * this.portals.nodes.length);
+      const portal = this.portals.nodes[randomIndex];
+      this.wsUrl = `wss://${portal.ip}:${this.portals.wsSoc}`;
+      console.log(`BorgHUIWebSocket():: using `,this.wsUrl);
+    } 
     console.log(`🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
     
     setTimeout(() => {
@@ -185,11 +191,15 @@ class BorgHUIWebSocket extends EventEmitter {
 
   _authenticate() {
     const borgToken = this.net.wallet.getBorgToken();
-    
+    const data = {
+      isRedirect : this.isRedirect
+    }
+    borgToken.data = data; 
     this.send({
-      type: 'auth',
-      borgToken:  borgToken
+      type       : 'auth',
+      borgToken  : borgToken,
     });
+    this.isRedirect = false;
   }
 
   // ============ MESSAGE HANDLING ============
@@ -247,6 +257,9 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'auth_failed':
         this._handleAuthFailed(message);
         break;
+      case 'doRedirectToIp':
+        this._handleRedirectTo(message);
+        break;
       case 'pushBorgChat':
         this._handleChatMessage(message);
         break;
@@ -259,8 +272,8 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'createBorgChannel':
         this._handleRoomCreated(message);
         break;
-      case 'participant_joined':
-        this._handleParticipantJoined(message);
+      case 'borgUserJoined':
+        this._handleBorgUserJoined(message);
         break;
       case 'participant_left':
         this._handleParticipantLeft(message);
@@ -333,7 +346,14 @@ class BorgHUIWebSocket extends EventEmitter {
      
     this.emit('chat_message', message);
   }
-
+  _handleRedirectTo(msg) {
+    this.shutdown();
+    this.isRedirect = true;
+    this.wsUrl = `wss://${msg.redirectToIp}:${this.portals.wsSoc}`;
+    console.log(`_handleRedirectTo():: `,this.wsUrl);
+    this._scheduleReconnect(true);  // true sets delay to zero.
+    return;
+  }
   _handleDirectMessage(message) {
     console.log(`📨 Direct message from ${message.from}`);
     this.emit('direct_message', message);
@@ -351,13 +371,13 @@ class BorgHUIWebSocket extends EventEmitter {
     this.net.pushEvent('borg-event',{req:"openBorgChannel",msg:msg});
    }
    _buildIcon(u){
-      let url = 'http:/localhost/'
+      let url = 'http://localhost/'
       if (u.msubIconFUID) {
         return `${url}file=${u.msubIconFUID}`;
       }
       return `${url}netREQ/msg=%7B"req":"getFileFromRepo","url":"/whzon/bitMiner/getFileFromRepo.php?wzID=DESKTOP&fname=${u.msubIconFName}` +
              `&rname=${u.msubIconRName}&path=${u.msubIconPath}&ownerMUID=${u.msubMUID}&folderID=${u.msubIconFolder}&encrypt=0","checkSum":"${u.msubIconFCSum}` +
-             `","ftype":"${u.msubIconFType}`;
+             `","ftype":"${u.msubIconFType}"}`;
 
    }
   _handleRoomCreated(message) {
@@ -376,9 +396,9 @@ class BorgHUIWebSocket extends EventEmitter {
      
   }
 
-  _handleParticipantJoined(message) {
+  _handleBorgUserJoined(msg) {
     console.log(`👤 ${message.participant} joined ${message.roomId}`);
-    this.emit('participant_joined', message);
+    this.net.pushEvent('borg-event',{req:"addNewChannelUser",user: msg.user});
   }
 
   _handleParticipantLeft(message) {
