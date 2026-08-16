@@ -25,6 +25,9 @@
   -webkit-animation: spin 2s linear infinite; /* Safari */
   animation: spin 2s linear infinite;
 }
+#wzStreamDisplay::-webkit-scrollbar {
+   display: none;
+}
 
 /* Safari */
 @-webkit-keyframes spin {
