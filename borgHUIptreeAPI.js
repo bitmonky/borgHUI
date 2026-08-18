@@ -307,6 +307,41 @@ class BorgHUIptreeAPI {
   async mailTreeRegisterBorgUser(msg) {
     return this._postJSON("mailTreeCell",{msg:msg});
   }
+  // Registry lookup: the recipient's mail public key, used to wrap the
+  // message key before anything leaves this machine.
+  async mailTreeGetInBoxKey(toMUID){
+    const msg = { req: 'getInBoxKey', toMUID: toMUID };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
+  // Posts an already encrypted envelope; nCopys cells each keep one copy.
+  async mailTreeSendMail(envelope, nCopys = 3){
+    const msg = {
+      req  : 'sendMail',
+      mail : {
+        to        : envelope.to,
+        from      : envelope.from,
+        hash      : envelope.hash,
+        nCopys    : nCopys,
+        envelope  : envelope
+      }
+    };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
+  /* Retrieval: the cell broadcasts for holders and returns their sealed
+     envelopes, de-duplicated. Bodies are opened locally. */
+  async mailTreeGetMyMail(){
+    const msg = { req: 'listMyMail' };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
+  // Same, narrowed to one envelope by its content hash.
+  async mailTreeGetMailMsg(hash){
+    const msg = { req: 'getMyMail', mail: { hash: hash } };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
+  async mailTreeDeleteMail(hash){
+    const msg = { req: 'deleteMail', mail: { hash: hash } };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
   async ftreeCreateRepoFolder(muid, name, folder, parent) {
     return this._postJSON("ftreeFileMgrCell", {
       msg: { req: "createRepoFolder", repo: { from: muid, name, folder, parent } }
