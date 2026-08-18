@@ -4,7 +4,8 @@
   "description": "BorgHUI Conduit — experimental sovereign computing client",
   "main": "borgHUIconduit.js",
   "scripts": {
-    "start": "node borgHUIconduit.js"
+    "start": "node borgHUIconduit.js",
+    "test": "node test/mailCrypto.test.js"
   },
   "author": "bitmonky",
   "license": "MIT",

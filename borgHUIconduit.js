@@ -35,6 +35,7 @@ const borgMnemonic       = require("./borgHUIMnemonic.js");
 const {SecureMnemonicStorage} = borgMnemonic;
 const {BorgHUImemoryMgr} = require("./borgHUImemoryMgr.js");
 const {BorgHUIWebSocket} = require("./borgHUIWebSocket.js");
+const mailCrypto         = require("./borgHUImailCrypto.js");
 const maxUpLoadSize = 100000000000; // 1Gig
 
 const { generateKeyPairSync } = require('crypto')
@@ -311,7 +312,11 @@ class mkyRSAMail {
   encryptString(toEncrypt,toPubKey=null) {
     if (!toPubKey) toPubKey =  this.publicKey;
     var buffer = Buffer.from(toEncrypt);
-    var encrypted = crypto.publicEncrypt(toPubKey, buffer);
+    var encrypted = crypto.publicEncrypt({
+      key      : toPubKey,
+      padding  : crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash : 'sha256'
+    }, buffer);
     return encrypted.toString("base64");
   };
 
@@ -321,6 +326,8 @@ class mkyRSAMail {
       {
         key: this.privateKey, 
         passphrase: this.passPhrase,
+        padding  : crypto.constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash : 'sha256'
       },
       buffer,
     )
@@ -330,7 +337,6 @@ class mkyRSAMail {
     const { publicKey, privateKey } = generateKeyPairSync('rsa', 
     {
       modulusLength: 4096,
-      namedCurve: 'secp256k1', 
       publicKeyEncoding: {
         type: 'spki',
         format: 'pem'     
@@ -738,8 +744,20 @@ class bitMonkyWSrv extends  EventEmitter {
             return;
          }
          if (j.req  == 'getRsaPubKey'){
-            j.rsaPubKey = this.wallet.rsaKeys
+            j.rsaPubKey = this.wallet.rsaKeys?.publicKey || null;
             res.end(JSON.stringify(j));
+            return;
+         }
+         if (j.req  === 'sendBorgMail'){
+            await this.wallet.doSendBorgMail(j,res);
+            return;
+         }
+         if (j.req  === 'getMyBorgMail'){
+            await this.wallet.doGetMyBorgMail(j,res);
+            return;
+         }
+         if (j.req  === 'deleteBorgMail'){
+            await this.wallet.doDeleteBorgMail(j,res);
             return;
          }
          if (j.req  == 'rsaDecodeMsg'){
@@ -1561,7 +1579,10 @@ class bitMonkyWallet{
        req   : 'registerInBox',
        reqId : crypto.randomUUID(),
        icon  : regInfo,
-       nic   : regInfo.nicName
+       nic   : regInfo.nicName,
+       // The registry doubles as the mail key directory: senders wrap message
+       // keys to this, never to the EC signing key.
+       mailPubKey : this.rsaKeys?.publicKey || null
      }
      console.log(`doUpdateBorgRegistry():: `,msg);
      let doTry = await this.net.PTree.mailTreeRegisterBorgUser(msg);
@@ -2345,24 +2366,114 @@ class bitMonkyWallet{
    }
    getRsaMailObj(){
      if (!this.rsaMail){
-       this.rsaMail = rsaMail = new mkyRSAMail(this.walletCipher,this.rsaKeys);
+       this.rsaMail = new mkyRSAMail(this.walletCipher,this.rsaKeys);
      }
+     return this.rsaMail;
    }
    doRsaDecodeMsg(j,res){
      this.getRsaMailObj();
-     msgTok = this.rsaMail.decryptString(j.parms.msg.rsaToken);
-     msgIV  = this.rsaMail.decryptString(j.parms.msg.rsaIV);
-     j.msgClear = deCypher(j.parms.msg.body,msgTok);
+     const msgTok = this.rsaMail.decryptString(j.parms.msg.rsaToken);
+     const msgIV  = this.rsaMail.decryptString(j.parms.msg.rsaIV);
+     j.msgClear   = this.deCypher(j.parms.msg.body,msgTok,msgIV);
      res.end(JSON.stringify(j));
    }
    doRsaEncodeMsg(j,res){
      this.getRsaMailObj();
      const randTok = crypto.randomBytes(32).toString('base64');
-     const ranIV   = crypto.randomBytes(16).toString('base64');
-     j.msgEncoded  = enCrypt(j.parms.msg.body,randToken);
+     const randIV  = crypto.randomBytes(16).toString('base64');
+     j.msgEncoded  = this.enCrypt(j.parms.msg.body,randTok,randIV);
      j.msgRsaToken = this.rsaMail.encryptString(randTok,j.parms.msg.toPubKey);
      j.msgRsaIV    = this.rsaMail.encryptString(randIV,j.parms.msg.toPubKey);
      res.end(JSON.stringify(j));
+   }
+   /***************************************************************
+   mailTree mail
+   ==============================================================
+   The registry hands out the recipient's mail public key, the body is
+   sealed here with a one-time message key wrapped to that public key,
+   and only the sealed envelope is posted. Cells store an opaque blob.
+   */
+   async doSendBorgMail(j,res){
+     const parms  = j.parms || {};
+     const toMUID = parms.to;
+     if (!toMUID){
+       res.end(JSON.stringify({result:false,error:'no recipient MUID'}));
+       return;
+     }
+     const lookUp = await this.net.PTree.mailTreeGetInBoxKey(toMUID);
+     const toKey  = lookUp?.json?.mailPubKey;
+     if (lookUp?.json?.result !== true || !toKey){
+       // No registered mail key means nothing can be sealed for this user:
+       // refuse rather than fall back to something the cell could read.
+       res.end(JSON.stringify({result:false,error:'recipient has no registered mail key'}));
+       return;
+     }
+
+     let envelope = null;
+     try {
+       envelope = mailCrypto.sealMail(toKey,{
+         from : this.ownMUID,
+         to   : toMUID,
+         msg  : {subject : parms.subject || '', body : parms.body || '', attach : parms.attach || null}
+       });
+     }
+     catch(err) {
+       console.log('doSendBorgMail():: seal failed',err);
+       res.end(JSON.stringify({result:false,error:err.message}));
+       return;
+     }
+
+     const nCopys = parms.nCopys || 3;
+     const post   = await this.net.PTree.mailTreeSendMail(envelope,nCopys);
+     const stored = post?.json?.nStored || 0;
+     res.end(JSON.stringify({
+       result  : stored > 0,
+       hash    : envelope.hash,
+       nStored : stored,
+       error   : stored > 0 ? null : (post?.json?.mail || 'mail was not stored')
+     }));
+   }
+   // Broadcast retrieval: cells holding mail for this MUID reply with the
+   // envelopes, which are opened here with the local private key.
+   async doGetMyBorgMail(j,res){
+     const got  = await this.net.PTree.mailTreeGetMyMail();
+     const rows = got?.json?.mail || [];
+     const mail = [];
+
+     for (const row of rows){
+       const item = {
+         hash : row.hash,
+         from : row.envelope?.from,
+         date : row.envelope?.date,
+         hosts: row.hosts || []
+       };
+       try {
+         item.msg = this.openBorgMail(row.envelope);
+       }
+       catch(err) {
+         // A mail we cannot open is still reported: the user should see that
+         // something arrived that their key does not fit.
+         item.error = err.message;
+       }
+       mail.push(item);
+     }
+     res.end(JSON.stringify({result:true,nRecs:mail.length,mail:mail}));
+   }
+   openBorgMail(envelope){
+     if (!this.rsaKeys?.privateKey) throw new Error('wallet has no mail private key');
+     return mailCrypto.openMail({
+       privateKey : this.rsaKeys.privateKey,
+       passphrase : this.walletCipher
+     },envelope);
+   }
+   async doDeleteBorgMail(j,res){
+     const hash = j.parms?.hash;
+     if (!hash){
+       res.end(JSON.stringify({result:false,error:'no mail hash'}));
+       return;
+     }
+     const gone = await this.net.PTree.mailTreeDeleteMail(hash);
+     res.end(JSON.stringify({result: gone?.json?.result === true}));
    }
    async encryptXChaCha20(msg, key) {
      await sodium.ready;
@@ -2411,8 +2522,8 @@ class bitMonkyWallet{
      return encrypted;
    }
    deCypher(msg,msgKey,msgIV){
-     let decipher = crypto.createDecipheriv(ALGO, msgKey, msgIv);
-     let decrypted = decipher.update(text, 'base64', 'utf8');
+     let decipher = crypto.createDecipheriv(ALGO, msgKey, msgIV);
+     let decrypted = decipher.update(msg, 'base64', 'utf8');
      return (decrypted + decipher.final('utf8'));
    }
    signMsg(stok) {
