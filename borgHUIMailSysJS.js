@@ -4,7 +4,7 @@
 // Injected before serving: ownMUID, borgReg, folder, queryString
 // -------------------------------------------------------
 
-var mailCache    = [];
+//var mailCache    = window.mailCache;
 var curMailHash  = null;
 
 // -------------------------------------------------------
@@ -115,6 +115,8 @@ function selectFolder(f) {
 // -------------------------------------------------------
 function openMailMsg(hash) {
   var item = null;
+  console.log(`openMailMsg():: `, window.mailCache);
+  let mailCache = window.mailCache;
   for (var i = 0; i < mailCache.length; i++) {
     if (mailCache[i].hash === hash) { item = mailCache[i]; break; }
   }
@@ -171,7 +173,7 @@ function handlerMailList(j) {
     error   : row.error || null
   };
   // Cache it so later clicks do not re-fetch
-  mailCache = mailCache.concat([item]);
+  window.mailCache = window.mailCache.concat([item]);
   renderMailMsg(item);
 }
 

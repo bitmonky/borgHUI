@@ -2470,6 +2470,7 @@ class bitMonkyWallet{
        return;
      }
      const lookUp = await this.net.PTree.mailTreeGetInBoxKey(toMUID);
+     console.log(`doSendBorgMail():: lookup`,lookUp);
      const toKey  = lookUp?.json?.mailPubKey;
      if (lookUp?.json?.result !== true || !toKey){
        // No registered mail key means nothing can be sealed for this user:

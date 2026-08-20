@@ -434,6 +434,13 @@ SELECT {
    border-radius:0.5em;
    margin:0px 0px 25px 0px;	    
 }
+.mailRow {
+   padding:8px;
+   background:#333333; 
+   border:0px solid dimGray;
+   border-radius:0.5em;
+   margin:0em 0em 0.5em 0em;	    
+}
 .infoCardPost {
    padding:8px;
    background:#222222;

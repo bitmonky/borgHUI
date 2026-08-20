@@ -269,7 +269,7 @@ class BorgHUIMailUI {
     `;
 
     // CACHE THE FULL LIST FOR THE CLIENT (mirrors the cfileData global pattern)
-    html += `<script>window.mailCache = ${JSON.stringify(items)};</script>`;
+    this.net.pushEvent('borg-event',{req:"updateMailCache",mailCache: items});
 
     return html;
   }

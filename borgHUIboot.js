@@ -23,6 +23,7 @@ var borgMUID    = null;
 var borgChanId  = null;
 var chatSpot    = null;
 var videoFObj   = null;
+var mailCache   = [];
 
 var service = {
   host     : SERVICE_HOST,
@@ -50,6 +51,10 @@ function handleBorgMsg(msg){
   console.log(`handleBorgMsg():: msg`,msg);
   if (msg.req === 'updateUpload'){
     doUpdateUpload(msg);
+    return;
+  }
+  if (msg.req === 'updateMailCache'){
+    mailCache = msg.mailCache;
     return;
   }
   if (msg.req === 'postNewBorgChat'){
