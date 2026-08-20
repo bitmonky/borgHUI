@@ -342,6 +342,10 @@ class BorgHUIptreeAPI {
     const msg = { req: 'deleteMail', mail: { hash: hash } };
     return this._postJSON("mailTreeCell",{msg:msg});
   }
+  async mailTreeQryBorgUsers(qry, maxRows = 10){
+    const msg = {req : 'findUsers', qry: qry, maxRows: maxRows };
+    return this._postJSON("mailTreeCell",{msg:msg});
+  }
   async ftreeCreateRepoFolder(muid, name, folder, parent) {
     return this._postJSON("ftreeFileMgrCell", {
       msg: { req: "createRepoFolder", repo: { from: muid, name, folder, parent } }

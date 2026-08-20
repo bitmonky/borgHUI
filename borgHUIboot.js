@@ -1141,6 +1141,11 @@ function handleResponse(j) {
   if (j.action === "doRegNewService") doHandleNewReg(j);
   if (j.action === "sendStoresList") doShowStoresList(j);
   if (j.action === "sendBorgFileSys") doShowBorgFileSys(j);
+  if (j.action === "sendBorgMailSys") doShowBorgMailSys(j);
+  if (j.action === "qryMailUsers") {
+    if (typeof handlerUserSearch === 'function') handlerUserSearch(j);
+    return;
+  }
   if (j.action === "sendBorgTime") doUpateBorgTime(j);
   if (j.action === "updateAccount") getAccountInfo();
  
@@ -1385,6 +1390,39 @@ function doShowBorgFileSys(j) {
     spot.innerHTML = j.html;
     document.body.appendChild(spot);
   }
+}
+
+function doShowBorgMailSys(j) {
+  var spot = document.getElementById("serviceMenu");
+
+  if (spot) {
+    spot.innerHTML = j.html;
+
+    if (j.js) {
+      var old = document.getElementById(j.jsID);
+      if (old) old.remove();
+
+      var script = document.createElement("script");
+      script.id = j.jsID;
+      script.type = "text/javascript";
+      script.textContent = j.js;
+      document.head.appendChild(script);
+    }
+  } else {
+    spot = document.createElement("DIV");
+    spot.id = "serviceMenu";
+    spot.innerHTML = j.html;
+    document.body.appendChild(spot);
+  }
+}
+
+function doSendBorgMailSys() {
+  hideDiv(`servSidePanel`);
+  hideDiv(`transactionSpot`);
+  sendRequest({
+    req: "sendBorgMailSys",
+    parms: { mode: MODE }
+  });
 }
 
 function doUpdateResByUrl(j) {

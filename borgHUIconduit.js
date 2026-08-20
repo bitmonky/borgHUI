@@ -30,6 +30,7 @@ const wconf   = 'keys/wallet.conf';
 const {BorgHUIstreamMgr} = require('./borgHUIstreamMgr.js');
 const {BorgHUIptreeAPI}  = require("./borgHUIptreeAPI.js");
 const {BorgHUIFileMgrUI} = require("./borgHUIFileMgrUI.js");
+const {BorgHUIMailUI}    = require("./borgHUIMailUI.js");
 const {BorgHUIBorgPay}   = require("./borgHUIBorgPay.js");
 const borgMnemonic       = require("./borgHUIMnemonic.js");
 const {SecureMnemonicStorage} = borgMnemonic;
@@ -380,6 +381,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.portal     = new BorgPortal();
     this.PTree      = new BorgHUIptreeAPI(this);
     this.UI         = new BorgHUIFileMgrUI(this);
+    this.MailUI     = new BorgHUIMailUI(this);
     this.BPay       = new BorgHUIBorgPay(this);
     this.wsSoc      = new BorgHUIWebSocket(this);
     this.wallet     = new bitMonkyWallet(this);
@@ -760,6 +762,15 @@ class bitMonkyWSrv extends  EventEmitter {
             await this.wallet.doDeleteBorgMail(j,res);
             return;
          }
+         if (j.req  === 'registerInBox'){
+            const ok = await this.wallet.doUpdateBorgRegistry();
+            res.end(JSON.stringify({ result: ok, action: j.req }));
+            return;
+         }
+         if (j.req  === 'qryMailUsers'){
+            await this.wallet.doQryMailUsers(j,res);
+            return;
+         }
          if (j.req  == 'rsaDecodeMsg'){
             this.wallet.doRsaDecodeMsg(j,res);
             return;
@@ -842,6 +853,10 @@ class bitMonkyWSrv extends  EventEmitter {
          }
          if (j.req === 'sendBorgFileSys' || j.req === 'borgUpdateResByUrl'){
            await this.wallet.doHandleBorgFileSys(j,res);
+           return;
+         }
+         if (j.req === 'sendBorgMailSys' || j.req === 'borgMailUpdateResByUrl'){
+           await this.wallet.doHandleBorgMailSys(j,res);
            return;
          }
 
@@ -2115,6 +2130,60 @@ class bitMonkyWallet{
     }
     res.end('doHandleBorgFileSys():: Failed.. no endpoint found');
   }
+  async doHandleBorgMailSys(m, res) {
+    console.log(`doHandleBorgMailSys():: `, m);
+
+    if (m.req === 'sendBorgMailSys') {
+      m.url = m.service.endPoint;
+      await this.doRenderMailSys(m,res);
+      return;
+    }
+    if (m.req === 'borgMailUpdateResByUrl'){
+      m.url = m.parms.url;
+      if (m.url.startsWith('/whzon/bitMiner/sendBorgMailSys')){
+        await this.doRenderMailSys(m,res);
+        return;
+      }
+    }
+    res.end('doHandleBorgMailSys():: Failed.. no endpoint found');
+  }
+  async doRenderMailSys(m,res){
+    // 1. Build mail context from GET string
+    console.log(`doRenderMailSys():: m.url`,m.url);
+
+    const urlObj = new URL(m.url, "http://localhost"); // base required
+    const queryString = urlObj.search.replace(/^\?/, "");
+
+    const ctx = await this.net.MailUI.initMailContextFromGET(queryString);
+
+    // 2. Build HTML
+    const htm = await this.net.MailUI.getMailBox(queryString);
+
+    // 3. Load JS template
+    let jsCode = fs.readFileSync('./borgHUIMailSysJS.js', 'utf8');
+
+    // 4. Inject server-side values into the JS code
+    jsCode =
+      `// Injected by BorgHUI\n` +
+      `var ownMUID    = "${ctx.ownMUID}";\n` +
+      `var borgReg    = ${ctx.borgReg ? 'true' : 'false'};\n` +
+      `var folder     = "${ctx.folder}";\n` +
+      `var queryString = "${m.url.replace(/"/g, '\\"')}";\n\n` +
+      jsCode;
+
+    // 5. Build response object
+    const j = {
+      action : m.req,
+      result : true,
+      html   : htm,
+      js     : jsCode,
+      jsID   : this.calculateHash(jsCode),
+      pMUID  : this.ownMUID
+    };
+
+    res.end(JSON.stringify(j));
+    return;
+  }
   async doCreateRepoFolder(m,res){
     console.log(`doCreateRepoFolder():: m.url`,m.url);
     let result = 'OK'
@@ -2436,7 +2505,9 @@ class bitMonkyWallet{
    // Broadcast retrieval: cells holding mail for this MUID reply with the
    // envelopes, which are opened here with the local private key.
    async doGetMyBorgMail(j,res){
+     console.log(`doGetMyBorgMail():: start with j`,j);
      const got  = await this.net.PTree.mailTreeGetMyMail();
+     console.log(`doGetMyBorgMail():: got`,got);
      const rows = got?.json?.mail || [];
      const mail = [];
 
@@ -2474,6 +2545,29 @@ class bitMonkyWallet{
      }
      const gone = await this.net.PTree.mailTreeDeleteMail(hash);
      res.end(JSON.stringify({result: gone?.json?.result === true}));
+   }
+   async doQryMailUsers(j,res){
+     const qry = j.parms?.qry;
+     const maxRows = j.parms?.maxRows || 10;
+     if (!qry){
+       res.end(JSON.stringify({result:false,error:'no query'}));
+       return;
+     }
+     const got = await this.net.PTree.mailTreeQryBorgUsers(qry, maxRows);
+     console.log(`doQryMailUsers():: `,got);
+     const users = got?.json?.tRec || [];
+     let htm = "<div style='padding:.5em;'>";
+     if (users.length === 0){
+       htm += "<div style='color:#999999;'>No users found.</div>";
+     } else {
+       for (const u of users){
+         const muid = u.msubMUID || u.muid;
+         const nic = u.nicName || u.msubBorgNic || 'Unknown';
+         htm += `<div style='padding:.5em;border-bottom:1px solid #333;cursor:pointer;' onclick="pickBorgUser('${muid}','${nic}')">${nic} <span style='color:#888;'>${muid}</span></div>`;
+       }
+     }
+     htm += '</div>';
+     res.end(JSON.stringify({result:true, action:'qryMailUsers', html:htm}));
    }
    async encryptXChaCha20(msg, key) {
      await sodium.ready;
