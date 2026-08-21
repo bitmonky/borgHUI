@@ -119,6 +119,11 @@ function selectFolder(f) {
 function openMailMsg(hash) {
   var item = null;
   showDiv('mailDisplaySpot');
+  const pg = document.getElementById('mainViewerPg');
+  if (pg) {
+    console.log(`openMailMsg():: `,pg);
+    pg.scrollTo(0,0);
+  } 
   let mailCache = window.mailCache;
   for (var i = 0; i < mailCache.length; i++) {
     if (mailCache[i].hash === hash) { item = mailCache[i]; break; }

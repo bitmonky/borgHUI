@@ -436,10 +436,18 @@ SELECT {
 }
 .mailRow {
    padding:8px;
-   background:#333333; 
+   background: rgba(0, 0, 0, 0.35);   
    border:0px solid dimGray;
    border-radius:0.5em;
    margin:0em 0em 0.5em 0em;	    
+}
+.mailBody {
+   padding:8px;
+   background: rgba(0, 0, 0, 0.35);   
+   border:0px solid dimGray;
+   border-radius:0.5em;
+   font-size: large;
+   margin:1.5em 0em 0.5em 0em;	    
 }
 .infoCardPost {
    padding:8px;

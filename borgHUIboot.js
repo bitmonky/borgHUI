@@ -259,7 +259,7 @@ function chanRollout(div, state) {
 */
 function doMainSearch(){
   const pg = document.getElementById('mainViewerPg');
-  if (pg) pg.scrollTo = 0;
+  if (pg) pg.scrollTo(0,0);
 
   const sbox = document.getElementById('peerMemQry');
   if (sbox) sbox.focus();
@@ -1113,7 +1113,9 @@ function handleResponse(j) {
     alert("Incorrect PIN Provided... Access Refused");
     return;
   }
-
+  if (j.action === "deleteBorgMail") {
+    doSendBorgMailSys();
+  }
   if (j.action === "linkAccount") {
     doSaveLinkAccountInfo(j);
     getAccountInfo();

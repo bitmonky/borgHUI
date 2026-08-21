@@ -2545,7 +2545,15 @@ class bitMonkyWallet{
        return;
      }
      const gone = await this.net.PTree.mailTreeDeleteMail(hash);
-     res.end(JSON.stringify({result: gone?.json?.result === true}));
+     const r = {
+       action : j.req,
+       result : gone?.json?.result,
+       html   : 'Mail Deleted',
+       js     : "",
+       jsID   : this.calculateHash(JSON.stringify(gone)),
+       pMUID  : this.ownMUID
+     };
+     res.end(JSON.stringify(r));
    }
    async doQryMailUsers(j,res){
      const qry = j.parms?.qry;
