@@ -57,12 +57,13 @@ function refreshMailBox() {
 }
 
 function mailFolderFilter(item, f) {
+  console.log(`mailFolderFilter():: `,item);
   f = f || 'all';
   if (f === 'inbox') {
     // Prefer the clear-text recipient header; degrade to "not from me".
     return (item.to && item.to === ownMUID) || (!item.to && item.from !== ownMUID);
   }
-  if (f === 'sent') return item.from === ownMUID;
+  if (f === 'sent') return false; //item.from === ownMUID;
   return true;
 }
 
@@ -84,7 +85,9 @@ function mailRowHTML(item) {
 function renderMailList(f) {
   f = f || folder || 'all';
   folder = f;
-  var spot = document.getElementById('mailListSpot');
+  var title = document.getElementById('mailBoxTitle');
+  if (title) title.innerHTML = folder;
+  var spot  = document.getElementById('mailListSpot');
   if (!spot) return;
   var rows = (window.mailCache || []).filter(function(item) {
     return mailFolderFilter(item, f);
@@ -115,7 +118,7 @@ function selectFolder(f) {
 // -------------------------------------------------------
 function openMailMsg(hash) {
   var item = null;
-  console.log(`openMailMsg():: `, window.mailCache);
+  showDiv('mailDisplaySpot');
   let mailCache = window.mailCache;
   for (var i = 0; i < mailCache.length; i++) {
     if (mailCache[i].hash === hash) { item = mailCache[i]; break; }

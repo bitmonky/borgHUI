@@ -136,10 +136,11 @@ class BorgHUIMailUI {
         <div class='mkyloader'></div>Fetching Mail From PeerTree...
       </div>
 
-      <div class='infoCardClear' style='background:#151515;' id='mailDisplaySpot'>
+      <div class='infoCardClear' style='background:#151515;display:none;' id='mailDisplaySpot'>
         <div id='mailActionSpot' align='right' style='display:none;padding:.5em;color:#777777;'>
-          <input type='button' value=' Reply '    id='mailReplyBut' onclick='composeReply();'/>
+          <input type='button' value=' Reply '    id='mailReplyBut'  onclick='composeReply();'/>
           <input type='button' value=' Delete '   id='mailDeleteBut' onclick='deleteMailMsg(curMailHash);'/>
+          <input type='button' value=' Close '    id='mailCloseBut'  onclick='hideDiv("mailDisplaySpot");'/>
         </div>
 
         <div id='mailViewSpot'></div>
@@ -222,7 +223,7 @@ class BorgHUIMailUI {
     // MAIL LIST
     html += `
       <div class='infoCardClear' style='background:#333333;color:darkKhaki;margin-top:.5em;'>
-        <h3 style='color:white;'>Mail - ${folder}</h3>
+        <h3 ID='mailBoxTitle' style='color:white;'>Mail - ${folder}</h3>
         <div id="mailListSpot">
     `;
 
