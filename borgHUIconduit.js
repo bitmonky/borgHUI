@@ -767,10 +767,6 @@ class bitMonkyWSrv extends  EventEmitter {
             res.end(JSON.stringify({ result: ok, action: j.req }));
             return;
          }
-         if (j.req  === 'registerBorgFarm'){
-            this.wallet.doRegisterBorgFarm(j,res);
-            return;
-         } 
          if (j.req  === 'qryMailUsers'){
             await this.wallet.doQryMailUsers(j,res);
             return;
@@ -1589,16 +1585,6 @@ class bitMonkyWallet{
         } catch (error) {
             return false;
         }
-   }
-   async doRegisterBorgFarm(j,res){
-     const msg = {
-       action : j.req,
-       reqId  : crypto.randomUUID(),
-       farm   : j.farm
-     }
-     let doTry = await this.net.PTree.mailTreeRegisterBorgFarm(this.ownMUID,msg);
-     msg.result = doTry?.json?.result;
-     res.end(JSON.stringify(msg));
    }
    async doUpdateBorgRegistry(){
      const regInfo   = this.net.wcj.imeta || {};
