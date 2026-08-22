@@ -300,8 +300,8 @@ class BorgHUIptreeAPI {
     const msg = { req: 'findUserProfile',ownMUID: userMUID};
     return this._postJSON("mailTreeCell",{msg:msg});
   }
-  async mailTreeRegisterBorgFarm(ownMUID,j){
-    const msg = { req: 'registerMyFarm', reqId:j.reqId, farm: j.farm};
+  async mailTreeRegisterMyFarmIp(ownMUID,farmIp){
+    const msg = { req: 'registerMyFarm',farmerFIP: farmIp};
     return this._postJSON("mailTreeCell",{msg:msg});
   }
   async mailTreeRegisterBorgUser(msg) {
