@@ -343,7 +343,7 @@ class BorgHUIWebSocket extends EventEmitter {
     }
     this.roomHistory.get(chanId).push(chatMessage);
     this.net.pushEvent('borg-event',{req:"postNewBorgChat",chanId:chanId,chat:chatMessage});
-     
+    this.channelState.chan.chanState.chats.push(chatMessage);     
     this.emit('chat_message', message);
   }
   _handleRedirectTo(msg) {
@@ -527,7 +527,13 @@ class BorgHUIWebSocket extends EventEmitter {
     if (!this.rooms.has(roomId)) {
       console.log(`Not in this room`);
     }
-    
+    const chat = {
+      from : this.net.wallet.ownMUID,
+      text : content,
+      time : Date.now()
+    }    
+    this.channelState.chan.chanState.chats.push(chat);
+
     return this.sendWithResponse({
       type: 'chat',
       roomId: roomId,
