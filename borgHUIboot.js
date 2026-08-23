@@ -115,7 +115,6 @@ function doOpenBorgChannel(msg){
 }
 function chanRollout(div, state) {
   console.log(`chanRollout():: `, state);
-  alert("Welcome To The Borg Space Lounge");
 
   const userMap = Object.fromEntries(state.users.map(u => [u.muid, u]));
   const display = document.getElementById('wzStreamDisplay');
@@ -523,6 +522,7 @@ function init() {
   setInterval(getBorgTime, 60*1000); 
   getBorgTime();
   getAccountInfo();
+  getBorgChannel();
 }
 document.addEventListener('keydown', function(event) {
   if (event.key === 'Enter' && !event.shiftKey) {  
@@ -580,7 +580,9 @@ function updateBorgClock() {
 function chkYouTubeImage(img) {
   console.log(img.attributes);
 }
-
+function getBorgChannel() {
+  sendRequest({ req: "getBorgChannel" });
+}
 function getAccountInfo() {
   sendRequest({ req: "sendAccountInfo" });
 }
@@ -814,7 +816,7 @@ function openRegisterBorgFarm() {
         display: flex; justify-content: center; align-items: center;
         z-index: 9999; font-family: sans-serif;
     `;
-    let title = "Register New Hardware For Your Borg Farm";
+    let title = ".: Prepare Unit For Assimilation :.";
 
     // 2. Build the Modal Form HTML
     overlay.innerHTML = `
@@ -824,7 +826,7 @@ function openRegisterBorgFarm() {
             <form id="borg-upload-form" enctype="multipart/form-data">
                 <!-- Visible Inputs -->
                 <div style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom: 5px; font-size: 0.9em;">New Node IP</label>
+                    <label style="display:block; margin-bottom: 5px; font-size: 0.9em;">Farm Node IP</label>
                     <input type="text" name="nodeIp" required style="width: 100%; padding: 8px; background: #0d1a0d; border: 1px solid #4caf50; color: #fff; border-radius: 4px;">
                 </div>
 
@@ -1179,6 +1181,10 @@ function handleResponse(j) {
 
   if (j.req === "repPINFail") {
     alert("Incorrect PIN Provided... Access Refused");
+    return;
+  }
+  if (j.action === "sendBorgMail") {
+    doSendBorgMailSys();
     return;
   }
   if (j.action === "deleteBorgMail") {

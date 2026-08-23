@@ -758,6 +758,10 @@ class bitMonkyWSrv extends  EventEmitter {
             await this.wallet.doGetMyBorgMail(j,res);
             return;
          }
+         if (j.req  === 'getBorgChannel') {
+            await this.wallet.doGetBorgChannel(j,res);
+            return;
+         }
          if (j.req  === 'deleteBorgMail'){
             await this.wallet.doDeleteBorgMail(j,res);
             return;
@@ -2481,7 +2485,7 @@ class bitMonkyWallet{
      const parms  = j.parms || {};
      const toMUID = parms.to;
      if (!toMUID){
-       res.end(JSON.stringify({result:false,error:'no recipient MUID'}));
+       res.end(JSON.stringify({result:false,action  : j.req, error:'no recipient MUID'}));
        return;
      }
      const lookUp = await this.net.PTree.mailTreeGetInBoxKey(toMUID);
@@ -2490,7 +2494,7 @@ class bitMonkyWallet{
      if (lookUp?.json?.result !== true || !toKey){
        // No registered mail key means nothing can be sealed for this user:
        // refuse rather than fall back to something the cell could read.
-       res.end(JSON.stringify({result:false,error:'recipient has no registered mail key'}));
+       res.end(JSON.stringify({result:false,action : j.req, error:'recipient has no registered mail key'}));
        return;
      }
 
@@ -2504,7 +2508,7 @@ class bitMonkyWallet{
      }
      catch(err) {
        console.log('doSendBorgMail():: seal failed',err);
-       res.end(JSON.stringify({result:false,error:err.message}));
+       res.end(JSON.stringify({result:false,action : j.req, error:err.message}));
        return;
      }
 
@@ -2512,6 +2516,7 @@ class bitMonkyWallet{
      const post   = await this.net.PTree.mailTreeSendMail(envelope,nCopys);
      const stored = post?.json?.nStored || 0;
      res.end(JSON.stringify({
+       action  : j.req,
        result  : stored > 0,
        hash    : envelope.hash,
        nStored : stored,
@@ -2552,6 +2557,17 @@ class bitMonkyWallet{
        privateKey : this.rsaKeys.privateKey,
        passphrase : this.walletCipher
      },envelope);
+   }
+   async doGetBorgChannel(j,res) {
+     console.log(`doGetBorgChannel():: `,j,this.net.wsSoc.channelState);
+     if (this.net.wsSoc.channelState){
+       this.net.pushEvent('borg-event',{req:"openBorgChannel",msg: this.net.wsSoc.channelState});
+     }
+     const r = {
+       action : j.req,
+       result : true
+     };
+     res.end(JSON.stringify(r));
    }
    async doDeleteBorgMail(j,res){
      const hash = j.parms?.hash;

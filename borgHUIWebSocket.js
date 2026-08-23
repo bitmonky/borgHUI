@@ -369,6 +369,7 @@ class BorgHUIWebSocket extends EventEmitter {
     msg.chan.chanState.users = userInfo;
     console.log(`_handleOpenBorgChannel(msg):: is now ==> `,msg); 
     this.net.pushEvent('borg-event',{req:"openBorgChannel",msg:msg});
+    this.channelState = msg;
    }
    _buildIcon(u){
       let url = 'http://localhost/'
@@ -390,9 +391,10 @@ class BorgHUIWebSocket extends EventEmitter {
      return;
     }
     console.log(`_handleRoomCreated(message):: `,message);
-    const state = message.original.json.msg;
+    this.channelState = message.original.json.msg;
+    console.log(`_handleRoomCreated(message):: channelState is =>`,this.channelState);
     
-    this.net.pushEvent('borg-event',{req:"createBorgChannel",state: state});
+    this.net.pushEvent('borg-event',{req:"createBorgChannel",state: channelState});
      
   }
 
