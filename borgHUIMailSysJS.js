@@ -155,7 +155,7 @@ function renderMailMsg(item) {
   if (item.error) {
     h += "<div style='color:#cc6666;'>Cannot Decrypt This Message: " + escapeHTML(item.error) + "</div>";
   } else {
-    h += "<pre class='mailBody'>" + escapeHTML(item.body || '') + "</pre>";
+    h += "<div class='mailBody'>" + escapeHTML(item.body || '') + "</div>";
   }
   h += "</div>";
   spot.innerHTML = h;
