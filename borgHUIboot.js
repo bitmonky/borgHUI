@@ -24,6 +24,7 @@ var borgChanId  = null;
 var chatSpot    = null;
 var videoFObj   = null;
 var mailCache   = [];
+var availShells = null;
 
 var service = {
   host     : SERVICE_HOST,
@@ -807,6 +808,11 @@ async function doCreateBorgChannel(formData) {
     alert("New Channel Assimilation In Progress... Propagating to Borg Collective");
 }
 function openRegisterBorgFarm() {
+    if (0  < 1000) {
+      alert('Not Enough Shells To Register A Farm');
+      return;
+    }
+
     // 1. Create the Modal Overlay
     const overlay = document.createElement('div');
     overlay.id = 'borg-modal-overlay';
@@ -1564,7 +1570,9 @@ function getAddressSpot(j) {
 
 function doShowAccountInfo(j) {
   console.log(`Borg Identity():: `,j);
-  borgMUID = j.pMUID;
+  borgMUID    = j.pMUID;
+  availShells = j.balance;
+
   if (hasAccount !== true) openBorgUserEdit(true);
   var spot = document.getElementById('accountInfo');
 
