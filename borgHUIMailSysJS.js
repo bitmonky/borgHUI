@@ -63,7 +63,7 @@ function mailFolderFilter(item, f) {
     // Prefer the clear-text recipient header; degrade to "not from me".
     return (item.to && item.to === ownMUID) || (!item.to && item.from !== ownMUID);
   }
-  if (f === 'sent') return false; //item.from === ownMUID;
+  if (f === 'sent') return item.from === ownMUID;
   return true;
 }
 
