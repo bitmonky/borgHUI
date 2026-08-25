@@ -1,6 +1,8 @@
 # borgHUI
 ### Borg Human Interface 
-**The client conduit to the BorgIOS Network.
+**A client conduit to the BorgIOS Network.
+
+This will connect you to the existing BorgIOS network. You will need nodeJS nunning on your PC. There is no mobile app available. 
 
 ![main](images/borgHUI.png)
 
