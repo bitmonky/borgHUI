@@ -1603,6 +1603,8 @@ class bitMonkyWallet{
      let doTry = await this.net.PTree.mailTreeRegisterBorgFarm(this.ownMUID,msg);
      console.log(`doRegisterBorgFarm():: doTry`,doTry);
      msg.result = doTry?.json?.result;
+     msg.msg = doTry?.json?.msg;
+
      res.end(JSON.stringify(msg));
    }
    async doUpdateBorgRegistry(){

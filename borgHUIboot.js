@@ -808,7 +808,7 @@ async function doCreateBorgChannel(formData) {
     alert("New Channel Assimilation In Progress... Propagating to Borg Collective");
 }
 function openRegisterBorgFarm() {
-    if (0  < 1000) {
+    if (availShells < 1000) {
       alert('Not Enough Shells To Register A Farm');
       return;
     }
@@ -877,8 +877,11 @@ function doRegisterBorgFarm(formData){
   console.log(`doRegisterBorgFarm(formData) msg`,msg);
 }
 function doShowResultFarmReg(j){
+  spot = document.getElementById('borg-modal-overlay');
+  if (spot) spot.remove();
+
   console.log(`doShowResultFarmReg(j):: `,j);
-  alert(`doShowResultFarmReg`);
+  alert(`Register Farm Result: ${j.msg}`);
 }
 function openBorgUserEdit(firstTime=true) {
     // 1. Create the Modal Overlay
@@ -1179,11 +1182,6 @@ function handleResponse(j) {
   console.log(j);
 
   butRestoreTo("butCreateAcc", " Create BitMonky Account ");
-
-  if (j.result === false) {
-    doShowAccountOptions(j);
-    return;
-  }
 
   if (j.req === "repPINFail") {
     alert("Incorrect PIN Provided... Access Refused");
@@ -1571,7 +1569,7 @@ function getAddressSpot(j) {
 function doShowAccountInfo(j) {
   console.log(`Borg Identity():: `,j);
   borgMUID    = j.pMUID;
-  availShells = j.balance;
+  availShells = parseFloat(j.balance.replace(/BORG Shells/g, "").trim());
 
   if (hasAccount !== true) openBorgUserEdit(true);
   var spot = document.getElementById('accountInfo');
