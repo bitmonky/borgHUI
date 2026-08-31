@@ -359,12 +359,15 @@ class BorgHUIWebSocket extends EventEmitter {
     this.emit('direct_message', message);
   }
   _handleOpenBorgChannel(msg){
-    console.log(`_handleOpenBorgChannel(msg):: `,msg);
+    console.log(`_handleOpenBorgChannel(msg):: `,msg,msg.chan.chanState.chats);
     const users = msg.chan.chanState.users;
     const userInfo = [];
+    console.log(`_handleOpenBorgChannel():: users`,users);
     users.forEach( (user) =>{
-      const u = {muid: user.msubMUID,nic: user.msubBorgNic, icon:  this._buildIcon(user)};
-      userInfo.push(u);
+      if (user) {
+        const u = {muid: user.msubMUID,nic: user.msubBorgNic, icon:  this._buildIcon(user)};
+        userInfo.push(u);
+      }
     });
     msg.chan.chanState.users = userInfo;
     console.log(`_handleOpenBorgChannel(msg):: is now ==> `,msg); 

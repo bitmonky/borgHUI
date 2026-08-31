@@ -176,8 +176,8 @@ function renderChatMessage(chat, userMap) {
         ${initial}
       </div>
     </div>
-    <span class="chat-name">${user.nic.slice(0,18)} :. </span>
-    <span class="chat-text">${chat.text}</span>
+    <span class="chat-name"></span>
+    <span class="chat-text"><b>${user.nic.slice(0,18)}</b> - ${chat.text}</span>
     <span class="chat-time">${new Date(chat.time).toLocaleTimeString()}</span>
   </div>`;
 }
