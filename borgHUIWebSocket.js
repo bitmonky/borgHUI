@@ -358,7 +358,60 @@ class BorgHUIWebSocket extends EventEmitter {
     console.log(`📨 Direct message from ${message.from}`);
     this.emit('direct_message', message);
   }
-  _handleOpenBorgChannel(msg){
+async _getMissingUserProfiles(users, chats) {
+    // Get all unique user IDs from chats
+    const chatUserIds = new Set();
+    if (chats && Array.isArray(chats)) {
+        chats.forEach(chat => {
+            if (chat.from) {
+                chatUserIds.add(chat.from);
+            }
+        });
+    }
+
+    // Find which user IDs from chats are missing in the users collection
+    const existingUserIds = new Set();
+    users.forEach((user, muid) => {
+        if (user && muid) {
+            existingUserIds.add(muid);
+        }
+    });
+
+    // Find users that are in chats but not in users collection
+    const missingUserIds = [];
+    chatUserIds.forEach(userId => {
+        if (!existingUserIds.has(userId)) {
+            missingUserIds.push(userId);
+        }
+    });
+
+    console.log(`_getMissingUserProfiles():: Missing user profiles to fetch:`, missingUserIds);
+
+    // Fetch profiles for missing users
+    for (const userMUID of missingUserIds) {
+        try {
+            const profile = await this.net.PTree.mailTreeQryBorgUserProfile(userMUID);
+            console.log(`_getMissingUserProfiles(userMUID: ${userMUID}):: profile`, profile);
+            
+            if (profile.error === false && profile.status === 200 && profile.json.result === true) {
+                const user = profile.json.tRec;
+                const u = {muid: user.msubMUID,nic: user.msubBorgNic, icon:  this._buildIcon(user)};
+
+                users.push(u);
+                console.log(`_getMissingUserProfiles():: Added user ${userMUID} to users collection`);
+            } else {
+                console.log(`_getMissingUserProfiles():: Profile not found for ${userMUID}, ignoring`);
+            }
+        } catch (error) {
+            console.error(`_getMissingUserProfiles():: Error fetching profile for ${userMUID}:`, error);
+            // Just log the error and continue - don't add placeholder
+        }
+    }
+
+    console.log(`_getMissingUserProfiles():: Completed. Users collection now has ${users.size} users`);
+    return users;
+}
+  async _handleOpenBorgChannel(msg){
     console.log(`_handleOpenBorgChannel(msg):: `,msg,msg.chan.chanState.chats);
     const users = msg.chan.chanState.users;
     const userInfo = [];
@@ -366,10 +419,14 @@ class BorgHUIWebSocket extends EventEmitter {
     users.forEach( (user) =>{
       if (user) {
         const u = {muid: user.msubMUID,nic: user.msubBorgNic, icon:  this._buildIcon(user)};
+        console.log(`_handleOpenBorgChannel():: u`,u);
         userInfo.push(u);
       }
     });
+
+    await this._getMissingUserProfiles(userInfo,msg.chan.chanState.chats);
     msg.chan.chanState.users = userInfo;
+
     console.log(`_handleOpenBorgChannel(msg):: is now ==> `,msg); 
     this.net.pushEvent('borg-event',{req:"openBorgChannel",msg:msg});
     this.channelState = msg;
