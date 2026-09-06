@@ -227,6 +227,7 @@ class BorgPortal {
   constructor() {
     this.pfile = 'keys/borgPortalsList.dat';
     this.portals = [];
+    this.pupTimer = null;
     this.loadPortals();
   }
 
@@ -255,6 +256,17 @@ class BorgPortal {
       req.on('error', () => resolve(false));
       req.end();
     });
+  }
+  updatePortals(pAPI){
+    if (this.pupTimer) clearTimeout(this.pupTimer);
+    console.log(pAPI);
+    this.portals.forEach(async (p) => {
+      const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
+      console.log(`updatePortals(net)`,nEPs);
+    });
+    this.pupTimer = setTimeout(() =>{
+      this.updatePortals(pAPI);
+    },60*1000); 
   }
   getPortalsAll(netName){
     console.log(`getPortalsAll():: service name `,netName);
@@ -378,7 +390,6 @@ class bitMonkyWSrv extends  EventEmitter {
     this.DStream    = new BorgHUIstreamMgr(this);
     this.MStream    = new BorgHUImemoryMgr(this);
     this.sseClients = [];
-    this.portal     = new BorgPortal();
     this.PTree      = new BorgHUIptreeAPI(this);
     this.UI         = new BorgHUIFileMgrUI(this);
     this.MailUI     = new BorgHUIMailUI(this);
@@ -390,6 +401,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.borgMasterID = this.getBorgMasterID();
     this.clockPulse = 60*1000;
     this.init();
+    setTimeout(() => {this.portal.updatePortals(this.PTree);},30*1000);
     //setInterval(() => { this.pushEvent('borg-event',{hello:"hello"});},8000);
   }
   async init() {

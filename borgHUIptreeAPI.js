@@ -257,6 +257,13 @@ class BorgHUIptreeAPI {
       }
     });
   }
+  peerTreeUpdateEndPoints(service) {
+    console.log(`updateEndPoints(netName):: `,service);
+    return this._postJSON(service, {
+      msg: { req: "selectEndPoints" }
+    });
+  }
+
   async peerPaysGetMyBalance(muid) {
     return this._postJSON("peerPaysCell", {
       msg: { req: "getUserBalance", userUID: muid }
