@@ -32,7 +32,6 @@ class BorgHUIptreeAPI {
     if (post) defEndPoint = "/netREQ";
 
     const p = await this.net.portal.selectPortal(portalName);
-    console.log(`portal`,p);
     return {
       host: p.host,
       port: p.port,
@@ -86,7 +85,6 @@ class BorgHUIptreeAPI {
     msgObj.borgToken = this.net.wallet.getBorgToken();
 
     const body = JSON.stringify(msgObj);
-    console.log(`url`,url,`body`,msgObj);
     return this._httpRequestRaw(
       url,
       {
@@ -258,7 +256,6 @@ class BorgHUIptreeAPI {
     });
   }
   peerTreeUpdateEndPoints(service) {
-    console.log(`updateEndPoints(netName):: `,service);
     return this._postJSON(service, {
       msg: { req: "selectEndPoints" }
     });

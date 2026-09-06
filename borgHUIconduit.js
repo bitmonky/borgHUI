@@ -242,7 +242,6 @@ class BorgPortal {
   }
   testConnect(url) {
      url = `https://${url}`;
-     console.log('trying url',url);
      return new Promise((resolve) => {
       const options = {
         method: 'HEAD',
@@ -250,7 +249,8 @@ class BorgPortal {
       };
 
       const req = https.request(url, options, (res) => {
-        resolve(res.statusCode === 200);
+        console.log(url,res.statusCode);
+        resolve(res.statusCode === 200 || res.statusCode === 405);
       });
 
       req.on('error', () => resolve(false));
@@ -259,10 +259,9 @@ class BorgPortal {
   }
   updatePortals(pAPI){
     if (this.pupTimer) clearTimeout(this.pupTimer);
-    console.log(pAPI);
     this.portals.forEach(async (p) => {
       const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
-      console.log(`updatePortals(net)`,nEPs);
+      console.log(`updatePortals(net)`,p.netName,nEPs);
     });
     this.pupTimer = setTimeout(() =>{
       this.updatePortals(pAPI);
@@ -279,9 +278,9 @@ class BorgPortal {
     return {port: this.portals[index].recpPort,wsSoc:this.portals[index].wsPort, nodes:[...this.portals[index].activeNodes]};
   }
   async selectPortal(netName) {
-    //console.log(`selectPortal():: `,this.portals);
+    console.log(`selectPortal():: `,netName);
     const index = this.portals.findIndex(portal => portal.netName === netName);
-
+    console.log(index);
     if (index === -1) {
       return { host: 'localhost', port: 80 };
     }
@@ -305,7 +304,7 @@ class BorgPortal {
         return { host, port };
       }
 
-      console.log(`Failed HTTPS check: ${target}, removing and retrying...`);
+      console.log(`Failed HTTPS check: ${target},${netName} removing and retrying...`,activeNodes);
       activeNodes.splice(rnodeIndex, 1);
     }
 
