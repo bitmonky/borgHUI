@@ -259,14 +259,46 @@ class BorgPortal {
   }
   updatePortals(pAPI){
     if (this.pupTimer) clearTimeout(this.pupTimer);
+    let newPortals = [];
     this.portals.forEach(async (p) => {
       const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
-      console.log(`updatePortals(net)`,p.netName,nEPs);
+      console.log(p.netName,nEPs);
+      if (nEPs.error === false && nEPs.status === 200 && nEPs?.json?.result === 'listOK') {
+        newPortals = this.parseToIpPort(nEPs.json.useReceptors);
+        console.log(`updatePortals(net)`,p.netName,newPortals);
+        this.mergPortals(p.activeNodes,newPortals,p.netName);
+      }
     });
+    this.updatePortalsFile(this.portals);
     this.pupTimer = setTimeout(() =>{
       this.updatePortals(pAPI);
     },60*1000); 
   }
+  mergPortals(oldP,newP,service){
+    console.log(`mergPortals():: `,service);
+    newP.forEach((p) => {
+      const oldNdx = oldP.map(node => node.ip).indexOf(p.ip);
+      console.log(`mergPortals():: `,oldNdx);
+      if (oldNdx !== -1 ) {
+        oldP[oldNdx].date = Date.now();
+      } else {
+        oldP.push({ip:p.ip,errors:0,date: Date.now(),pubKey: "NA"}); 
+      }
+    });
+
+  }
+  parseToIpPort(data) {
+    console.log(`parseToIpPort(data)`,data); 
+    const ports = [];
+    if (data.length === 0) return ports; 
+    
+    data.forEach((url) => {
+      const [ip, port] = url.replace(/^https?:\/\//, '').split(':');
+      ports.push( { ip, port: Number(port) });
+    });
+    return ports;
+  }
+
   getPortalsAll(netName){
     console.log(`getPortalsAll():: service name `,netName);
     const index = this.portals.findIndex(portal => portal.netName === netName);
@@ -311,7 +343,33 @@ class BorgPortal {
     // If no nodes worked, fall back
     return { host: 'web.bitmonky.com', port: 443 };
   }
+  async updatePortalsFile(data) {
+     const tempFile = `${this.pfile}.tmp`;
+     const newContent = JSON.stringify(data);
+     console.log(`updatePortalsFile():: `,newContent);
 
+     try {
+       // Step 1: Write to temp file
+       await fs.promises.writeFile(tempFile, newContent, { flag: 'w' });
+    
+       // Step 2: Rename temp to target (atomic operation)
+       await fs.promises.rename(tempFile, this.pfile);
+    
+       console.log(`updatePortalsFile():: file updated successfully`);
+       return true;
+    
+     } catch (err) {
+       console.log(`updatePortalsFile():: update failed:: `, err);
+    
+       // Clean up temp file if it exists
+       try {
+         await fs.promises.unlink(tempFile);
+       } catch (cleanErr) {
+         // Ignore cleanup errors
+       }
+       return false;
+     }
+   }
 }
 class mkyRSAMail {
   constructor(pPhrase,keys=null){
