@@ -25,7 +25,8 @@ const sodium  = require('libsodium-wrappers');
 const ALGO    = "aes-256-cbc"
 const port    = 80;
 const wfile   = 'keys/myBMGPWallet.key';
-const wconf   = 'keys/wallet.conf';
+const wconfTPL = 'keys/wallet.conf';
+let   wconf    = null;
 
 const {BorgHUIstreamMgr} = require('./borgHUIstreamMgr.js');
 const {BorgHUIptreeAPI}  = require("./borgHUIptreeAPI.js");
@@ -249,7 +250,7 @@ class BorgPortal {
       };
 
       const req = https.request(url, options, (res) => {
-        console.log(url,res.statusCode);
+        //console.log(url,res.statusCode);
         resolve(res.statusCode === 200 || res.statusCode === 405);
       });
 
@@ -262,10 +263,8 @@ class BorgPortal {
     let newPortals = [];
     this.portals.forEach(async (p) => {
       const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
-      console.log(p.netName,nEPs);
       if (nEPs.error === false && nEPs.status === 200 && nEPs?.json?.result === 'listOK') {
         newPortals = this.parseToIpPort(nEPs.json.useReceptors);
-        console.log(`updatePortals(net)`,p.netName,newPortals);
         this.mergPortals(p.activeNodes,newPortals,p.netName);
       }
     });
@@ -275,20 +274,16 @@ class BorgPortal {
     },60*1000); 
   }
   mergPortals(oldP,newP,service){
-    console.log(`mergPortals():: `,service);
     newP.forEach((p) => {
       const oldNdx = oldP.map(node => node.ip).indexOf(p.ip);
-      console.log(`mergPortals():: `,oldNdx);
       if (oldNdx !== -1 ) {
         oldP[oldNdx].date = Date.now();
       } else {
         oldP.push({ip:p.ip,errors:0,date: Date.now(),pubKey: "NA"}); 
       }
     });
-
   }
   parseToIpPort(data) {
-    console.log(`parseToIpPort(data)`,data); 
     const ports = [];
     if (data.length === 0) return ports; 
     
@@ -300,9 +295,7 @@ class BorgPortal {
   }
 
   getPortalsAll(netName){
-    console.log(`getPortalsAll():: service name `,netName);
     const index = this.portals.findIndex(portal => portal.netName === netName);
-    console.log(`applyCronoTreeTime():: index is `,index);
     if (index === -1) {
       return null;
     }
@@ -310,9 +303,7 @@ class BorgPortal {
     return {port: this.portals[index].recpPort,wsSoc:this.portals[index].wsPort, nodes:[...this.portals[index].activeNodes]};
   }
   async selectPortal(netName) {
-    console.log(`selectPortal():: `,netName);
     const index = this.portals.findIndex(portal => portal.netName === netName);
-    console.log(index);
     if (index === -1) {
       return { host: 'localhost', port: 80 };
     }
@@ -336,7 +327,7 @@ class BorgPortal {
         return { host, port };
       }
 
-      console.log(`Failed HTTPS check: ${target},${netName} removing and retrying...`,activeNodes);
+      //console.log(`Failed HTTPS check: ${target},${netName} removing and retrying...`,activeNodes);
       activeNodes.splice(rnodeIndex, 1);
     }
 
@@ -346,7 +337,6 @@ class BorgPortal {
   async updatePortalsFile(data) {
      const tempFile = `${this.pfile}.tmp`;
      const newContent = JSON.stringify(data);
-     console.log(`updatePortalsFile():: `,newContent);
 
      try {
        // Step 1: Write to temp file
@@ -355,7 +345,7 @@ class BorgPortal {
        // Step 2: Rename temp to target (atomic operation)
        await fs.promises.rename(tempFile, this.pfile);
     
-       console.log(`updatePortalsFile():: file updated successfully`);
+       //console.log(`updatePortalsFile():: file updated successfully`);
        return true;
     
      } catch (err) {
@@ -694,7 +684,7 @@ class bitMonkyWSrv extends  EventEmitter {
     });
   }
   async applyCronoTreeTime() {
-    console.log(`applyCronoTreeTime():: checking BorgTime`);
+    //console.log(`applyCronoTreeTime():: checking BorgTime`);
     try {
       const ps = this.portal.getPortalsAll('cronoTreeCell');
       const portals = ps.nodes;
@@ -721,9 +711,9 @@ class bitMonkyWSrv extends  EventEmitter {
 
       // Debug
       for (let i = 0; i < portals.length; i++) {
-        console.log(`applyCronoTreeTime():: ${portals[i].ip} says`, results[i]);
+        //console.log(`applyCronoTreeTime():: ${portals[i].ip} says`, results[i]);
       }
-      console.log(`Times:: `,times);
+      //console.log(`Times:: `,times);
 
       if (times.length > 0) {
         // Sort
@@ -740,7 +730,7 @@ class bitMonkyWSrv extends  EventEmitter {
 
         // Apply drift correction
         peerTCorrection = avg - realNow();
-        console.log(`applyCronoTreeTime():: avg ${avg} peerTCorrection `, peerTCorrection, Date.now(), realNow());
+        //console.log(`applyCronoTreeTime():: avg ${avg} peerTCorrection `, peerTCorrection, Date.now(), realNow());
       }
 
     } catch (_) {}
@@ -1388,6 +1378,26 @@ async getFileFromRepo(req, msg, res) {
   }
   readConfigFile(){
      var conf = null;
+
+     if (wconf === null){
+       wconf = `keys/${this.wallet.ownMUID}-wallet.conf`;
+
+       // Check if the file exists
+       if (!fs.existsSync(wconf)) {
+         // Create directory if it doesn't exist
+         const dir = path.dirname(wconf);
+         if (!fs.existsSync(dir)) {
+           fs.mkdirSync(dir, { recursive: true });
+         }
+
+         if (fs.existsSync(wconfTPL)) {
+           fs.copyFileSync(wconfTPL, wconf);
+         } 
+         else {
+           fs.writeFileSync(wconf, wconfTPL);
+         }
+       }
+     }
      try {conf =  fs.readFileSync(wconf);}
      catch {console.log('no config file found');}
      if (conf){
