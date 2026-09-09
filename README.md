@@ -4,7 +4,8 @@
 
 This will connect you to the existing BorgIOS network. You will need nodeJS nunning on your PC. There is no mobile app available. 
 
-![main](images/borgHUI.png)
+[![BorgSpace Video Thumbnail](https://img.youtube.com/vi/LM2EXU3aXd0/0.jpg)](https://youtu.be/LM2EXU3aXd0)
+
 
 This node.js application runs on your machine allowing you to access BorgIOS using any standard web browser.
 
