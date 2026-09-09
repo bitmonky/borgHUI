@@ -262,10 +262,12 @@ class BorgPortal {
     if (this.pupTimer) clearTimeout(this.pupTimer);
     let newPortals = [];
     this.portals.forEach(async (p) => {
-      const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
-      if (nEPs.error === false && nEPs.status === 200 && nEPs?.json?.result === 'listOK') {
-        newPortals = this.parseToIpPort(nEPs.json.useReceptors);
-        this.mergPortals(p.activeNodes,newPortals,p.netName);
+      if (p.netName !== 'ftreeFileMgrCell') { 
+        const nEPs = await pAPI.peerTreeUpdateEndPoints(p.netName);
+        if (nEPs.error === false && nEPs.status === 200 && nEPs?.json?.result === 'listOK') {
+          newPortals = this.parseToIpPort(nEPs.json.useReceptors);
+          this.mergPortals(p.activeNodes,newPortals,p.netName);
+        }
       }
     });
     this.updatePortalsFile(this.portals);
