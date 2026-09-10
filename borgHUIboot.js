@@ -20,6 +20,8 @@
 var hasAccount  = false;
 var qryAction   = 'not set';
 var borgMUID    = null;
+var borgNic     = null;
+var borgIcon    = null;
 var borgChanId  = null;
 var chatSpot    = null;
 var videoFObj   = null;
@@ -154,6 +156,11 @@ function renderChatMessage(chat, userMap) {
     icon: '',
     muid: chat.from || 'unknown'
   };
+  if (user.nic === null) {
+    user.nic  = borgNic;
+    user.icon = borgIcon;
+  }
+
   console.log(`renderChatMessage():: icon`,user.icon);
   const color = getColor(user.muid || chat.from || 'unknown');
   const initial = getInitial(user.nic);
@@ -1569,8 +1576,10 @@ function getAddressSpot(j) {
 function doShowAccountInfo(j) {
   console.log(`Borg Identity():: `,j);
   borgMUID    = j.pMUID;
+  borgNic     = j.name;
+  borgIcon    = j.icon;
   availShells = parseFloat(j.balance.replace(/BORG Shells/g, "").trim());
-
+  console.log(`doShowAccountInfo()::`,borgMUID,borgNic,borgIcon);
   if (hasAccount !== true) openBorgUserEdit(true);
   var spot = document.getElementById('accountInfo');
 

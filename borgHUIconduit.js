@@ -2433,6 +2433,9 @@ class bitMonkyWallet{
       j.myFarms = this.net.PTree.mailTreeGetFarms(this.ownMUID);
     }
     j.hasAccount = this.net.wcj.hasAccInfo; 
+    j.name       = this.net.wcj.nicname;
+    j.icon       = this.net.wcj.icon;
+
     res.end(JSON.stringify(j));
     return;    
   }
