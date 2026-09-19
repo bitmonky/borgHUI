@@ -121,9 +121,6 @@ class BorgHUIWebSocket extends EventEmitter {
     // Start heartbeat
     this._startHeartbeat();
     
-    // Authenticate with BorgToken
-    this._authenticate();
-    
     this.emit('connected');
   }
 
@@ -149,6 +146,7 @@ class BorgHUIWebSocket extends EventEmitter {
   }
 
   _handlePong() {
+    //console.log(`_handlePong()::`);
     // Heartbeat received
   }
 
@@ -182,6 +180,7 @@ class BorgHUIWebSocket extends EventEmitter {
     
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        //console.log(`ping()::`);
         this.ws.ping();
       }
     }, this.heartbeatTimeout);
@@ -195,6 +194,7 @@ class BorgHUIWebSocket extends EventEmitter {
       isRedirect : this.isRedirect
     }
     borgToken.data = data; 
+    console.log(`_authenticate():: send borgToken`,borgToken);
     this.send({
       type       : 'auth',
       borgToken  : borgToken,
@@ -307,13 +307,16 @@ class BorgHUIWebSocket extends EventEmitter {
 
   _handleWelcome(message) {
     console.log('👋 Welcome to BorgIOS Chat Services network');
-    console.log(`Node ID: ${message.nodeId}`);
+    console.log(`wmessage: `,message);
     console.log(`Client ID: ${message.clientId}`);
     
     this.clientId = message.clientId;
     this.nodeId = message.nodeId;
     this.nodeLoad = message.nodeLoad;
-    
+
+    // Authenticate with BorgToken
+    this._authenticate();
+
     this.emit('welcome', message);
   }
 

@@ -73,6 +73,7 @@ function headerOrigin(req) {
 function isUIRequest(req, isIndexDoc) {
   const site = req.headers['sec-fetch-site'];
   const origin = headerOrigin(req);
+  console.log(`isUIRequest():: `,site,origin);
 
   if (origin === null) return false;                    // opaque or unparsable
   if (origin !== undefined) return LOCAL_ORIGINS.has(origin);
@@ -443,7 +444,6 @@ class bitMonkyWSrv extends  EventEmitter {
     this.UI         = new BorgHUIFileMgrUI(this);
     this.MailUI     = new BorgHUIMailUI(this);
     this.BPay       = new BorgHUIBorgPay(this);
-    this.wsSoc      = new BorgHUIWebSocket(this);
     this.wallet     = new bitMonkyWallet(this);
     this.wcj        = null; // wallet conf json data; 
     this.uiToken    = crypto.randomBytes(32).toString('hex');
@@ -462,6 +462,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.webPortal = `${wp.host}:${wp.port}`;
 
     await this.applyCronoTreeTime();
+    this.wsSoc      = new BorgHUIWebSocket(this);
 
     this.readConfigFile();
     if (!this.wcj.openBal)   this.wallet.doCreateOpeningBalance();
