@@ -441,8 +441,8 @@ async _getMissingUserProfiles(users, chats) {
 
    }
   _handleRoomCreated(message) {
-    if (message.original.json.error === 'false'){
-      console.log(`🏠 Room created: ${message.roomId} by ${message.creator}`);
+    if (message.original.json.result === 'chanOK'){
+      console.log(`🏠 Room created: ${message.original.json.chanID} by ${message.original.title}`);
       this.emit('room_created', message);
     }
     else { 
@@ -450,10 +450,13 @@ async _getMissingUserProfiles(users, chats) {
      return;
     }
     console.log(`_handleRoomCreated(message):: `,message);
-    this.channelState = message.original.json.msg;
-    console.log(`_handleRoomCreated(message):: channelState is =>`,this.channelState);
+    const channelState = message.original.data;
+    channelState.chanID = message.original.json.chanID;
+    channelState.users = [];
+    channelState.chats = [];
+    console.log(`_handleRoomCreated(message):: channelState is =>`,channelState);
     
-    this.net.pushEvent('borg-event',{req:"createBorgChannel",state: channelState});
+    this.net.pushEvent('borg-event',{req:"createBorgChannel",data: channelState});
      
   }
 

@@ -73,7 +73,8 @@ function handleBorgMsg(msg){
     return;
   }
   if (msg.req === 'createBorgChannel'){
-    alert(msg.msg);
+    msg.data.users.push({muid:borgMUID,nic:borgNic,icon:borgIcon});
+    console.log('createBorgChannel:: created',msg.data);
     return;
   }
   if (msg.req === 'createBorgMemory'){
@@ -1211,7 +1212,7 @@ function handleResponse(j) {
     getAccountInfo();
   }
   if (j.action === "createBorgChannel"){
-    doDisResultCreateChannel(j);
+    //doDisResultCreateChannel(j);
   }
   if (j.action === "createBorgMemory"){
     doDisResultCreateBorgMemory(j);
