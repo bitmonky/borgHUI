@@ -1423,13 +1423,15 @@ function doShowBorgResponse(j) {
     showSideChat();
   }
   hideDiv(`borgChatLoading`);
+  const html = j.html.replaceAll(/\r?\n/g, '<br/>');
+
   var spot = document.getElementById("wzStreamDisplay");
   if (spot) {
-    spot.innerHTML = j.html;
+    spot.innerHTML = html;
   } else {
     spot = document.createElement("DIV");
     spot.id = "serviceMenu";
-    spot.innerHTML = j.html;
+    spot.innerHTML = html;
     document.body.appendChild(spot);
   }
 }
