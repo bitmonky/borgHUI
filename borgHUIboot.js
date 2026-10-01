@@ -75,6 +75,7 @@ function handleBorgMsg(msg){
   if (msg.req === 'createBorgChannel'){
     msg.data.users.push({muid:borgMUID,nic:borgNic,icon:borgIcon});
     console.log('createBorgChannel:: created',msg.data);
+    doOpenBorgChannelById(msg.data.chanID);
     return;
   }
   if (msg.req === 'createBorgMemory'){
@@ -92,6 +93,16 @@ function handleBorgMsg(msg){
     }
     doUpdateFullMemory(msg); 
   }
+}
+function doOpenBorgChannelById(chanID){
+  console.log(`doOpenBorgChannelById(chanID):: `,chanID);
+  // Send Websock Request for channel connection.
+  sendRequest({
+    req: "openBorgChannelById",
+    parms: {
+      chanID     : chanID
+    }
+  });
 }
 function doAddNewChannelUser(msg){
   console.log(`doAddNewChannelUser(msg):: `,msg,display._userMap);
@@ -1213,6 +1224,7 @@ function handleResponse(j) {
   }
   if (j.action === "createBorgChannel"){
     //doDisResultCreateChannel(j);
+    //console.log(`doOpenBorgChannelById():: j`,j);
   }
   if (j.action === "createBorgMemory"){
     doDisResultCreateBorgMemory(j);
@@ -1303,7 +1315,6 @@ function handleResponse(j) {
 /************************************************************
  *  UI HELPERS
  ************************************************************/
-
 function butRestoreTo(id, name) {
   var but = document.getElementById(id);
   if (but) {

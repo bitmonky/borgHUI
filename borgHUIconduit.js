@@ -820,6 +820,10 @@ class bitMonkyWSrv extends  EventEmitter {
             await this.wallet.doGetMyBorgMail(j,res);
             return;
          }
+         if (j.req === 'openBorgChannelById'){
+            await this.wallet.doOpenBorgChannelById(j,res);
+            return;
+         } 
          if (j.req  === 'getBorgChannel') {
             await this.wallet.doGetBorgChannel(j,res);
             return;
@@ -2644,6 +2648,17 @@ class bitMonkyWallet{
        privateKey : this.rsaKeys.privateKey,
        passphrase : this.walletCipher
      },envelope);
+   }
+   async doOpenBorgChannelById(j,res){
+     console.log(`doOpenBorgChannelById():: `,j);
+     const result = await this.net.wsSoc.openBorgChannelById(j.parms.chanID);
+     console.log(`doOpenBorgChannelById():: result`,result);
+
+     const r = {
+       action : j.req,
+       result : true
+     };
+     res.end(JSON.stringify(r));
    }
    async doGetBorgChannel(j,res) {
      console.log(`doGetBorgChannel():: `,j,this.net.wsSoc.channelState);

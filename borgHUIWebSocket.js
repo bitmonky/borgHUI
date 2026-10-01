@@ -58,7 +58,18 @@ class BorgHUIWebSocket extends EventEmitter {
       type     : 'req',
       req      : 'createBorgChannel',
       data     : j.data,
-      borgToken:  borgToken
+      borgToken: borgToken
+    });
+    return false;
+  }
+  async openBorgChannelById(chanID){
+    const borgToken = this.net.wallet.getBorgToken();
+
+    this.send({
+      type     : 'req',
+      req      : 'openBorgChannelById',
+      chanID   : chanID,
+      borgToken: borgToken
     });
     return false;
   }
