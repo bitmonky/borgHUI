@@ -23,6 +23,7 @@ var borgMUID    = null;
 var borgNic     = null;
 var borgIcon    = null;
 var borgChanId  = null;
+var borgLounge  = null;
 var chatSpot    = null;
 var videoFObj   = null;
 var mailCache   = [];
@@ -116,6 +117,7 @@ function doPostNewBorgChat(msg){
 function doOpenBorgChannel(msg){
   const chan = msg.chan;
   borgChanId = chan.chanID;
+  borgLounge = borgChanId;
   const title  = document.getElementById('sideChatTitle');
   if (title) title.innerHTML = chan.title;
   chatSpot = document.getElementById('wzStreamDisplay'); 
@@ -825,6 +827,15 @@ async function doCreateBorgChannel(formData) {
     // Close the modal on success
     document.getElementById('borg-modal-overlay').remove();
     alert("New Channel Assimilation In Progress... Propagating to Borg Collective");
+}
+function openChannelById(chanID){
+    let conf = confirm('Change Channel Now?');
+    if (!conf) return;
+
+    sendRequest({
+      req    : "openChannelById",
+      chanID : chanID,
+    });
 }
 function openRegisterBorgFarm() {
     if (availShells < 1000) {

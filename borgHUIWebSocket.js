@@ -280,6 +280,9 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'openBorgChannel':
         this._handleOpenBorgChannel(message);
         break;
+      case 'openBorgChannelById':
+        this._handleOpenBorgChannel(message.original.json.msg);
+        break;
       case 'createBorgChannel':
         this._handleRoomCreated(message);
         break;
@@ -422,7 +425,7 @@ async _getMissingUserProfiles(users, chats) {
     return users;
 }
   async _handleOpenBorgChannel(msg){
-    //console.log(`_handleOpenBorgChannel(msg):: `,msg,msg.chan.chanState.chats);
+    console.log(`_handleOpenBorgChannel(msg):: `,msg);
     const users = msg.chan.chanState.users;
     const userInfo = [];
     //console.log(`_handleOpenBorgChannel():: users`,users);

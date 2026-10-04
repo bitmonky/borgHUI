@@ -73,7 +73,7 @@ function headerOrigin(req) {
 function isUIRequest(req, isIndexDoc) {
   const site = req.headers['sec-fetch-site'];
   const origin = headerOrigin(req);
-  console.log(`isUIRequest():: `,site,origin);
+  //console.log(`isUIRequest():: `,site,origin);
 
   if (origin === null) return false;                    // opaque or unparsable
   if (origin !== undefined) return LOCAL_ORIGINS.has(origin);
@@ -650,7 +650,7 @@ class bitMonkyWSrv extends  EventEmitter {
       }
     });
     this.srv.on('connection', (sock)=> {
-      console.log(sock.remoteAddress,this.allow);
+      //console.log(sock.remoteAddress,this.allow);
       if (this.allow.indexOf(sock.remoteAddress) < 0){
         sock.end('HTTP/1.1 400 Bad Request\r\n\r\n');
       } 
@@ -787,7 +787,7 @@ class bitMonkyWSrv extends  EventEmitter {
           
      try {
        j = JSON.parse(msg);
-       console.log(`handleRequest():: values:`,j);
+       //console.log(`handleRequest():: values:`,j);
 
        if (j.req){
          if (j.req == 'useNewWallet'){
@@ -853,6 +853,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.doCreateBorgChannel(j,res);
            return;
          }
+         if (j.req === 'openChannelById'){
+           this.wallet.doOpenChannelById(j,res);
+           return;
+         } 
          if (j.req === 'sendChanChat'){
            this.wallet.doSendChanChat(j,res);
            return;
@@ -1815,11 +1819,19 @@ class bitMonkyWallet{
      this.net.wsSoc.sendChatMessage(j.msg.chanID, j.msg.txt);
      res.end(JSON.stringify(j));
    }
+   async doOpenChannelById(j,res){
+     this.net.wsSoc.openBorgChannelById(j.chanID);
+     j.action = j.req;
+     j.html   = 'Changing To New Channel request is processing... The Borg will notify you when complete';
+     j.result = true;
+
+     res.end(JSON.stringify(j));
+   }
    async doCreateBorgChannel(j,res){
      j.action = j.req;
      j.html   = 'Create Borg Channel request is processing... The Borg will notify you when complete';
      j.result = true;
-
+     
      res.end(JSON.stringify(j));
 
      let memPrompt = await this.net.wsSoc.doCreateChannel(j);
