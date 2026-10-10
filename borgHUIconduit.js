@@ -885,6 +885,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.doSendShells(j,res);
            return;
          }
+         if (j.req  === 'searchChannelsAutoQry'){
+           this.wallet.doSearchChannelsAutoQry(j,res);
+           return;
+         }
          if (j.req  === 'qryMemberSendTo'){
            this.wallet.doQryMemberSendTo(j,res);
            return;
@@ -1345,6 +1349,7 @@ async getFileFromRepo(req, msg, res) {
         `var SERVICE_HOST = "localhost";\n` +
         `var NET_PORT     = "" //80;\n` +
         `var PIN          = "TEST_PIN_2x49fg16";\n` +
+        `var borgLounge   = "${this.borgMasterID}";\n` +
         `\n` + jsCode; 
 
       res.writeHead(200, { "Content-Type": "application/javascript" });
@@ -1875,7 +1880,7 @@ class bitMonkyWallet{
      this.net.pushEvent('borg-event',{req:"createBorgMemory",error:j.result,msg:j.html});
    }    
    async doSendPeerQryResults(j,res){
-     console.log(j);
+     console.log(`doSendPeerQryResults():: j`,j);
      const mbrMUID = 'publicAll';
      const qry = j.parms.qry.substring(0, 500);
      const type = null; //'BorgAgentMem';
@@ -1943,6 +1948,27 @@ class bitMonkyWallet{
      j.action = j.req;
      res.end(JSON.stringify(j));
    }
+   async doSearchChannelsAutoQry(j,res){
+     console.log(`doSearchChannelsAutoQry():: `,j);
+
+     const msg = {
+       req     : 'findChannel',
+       qry     : j.parms.qry,
+       maxRows : j.parms.maxRows,
+       reqId : crypto.randomUUID()
+     }
+     console.log(`doSearchChannelsAutoQry():: `,msg);
+     let doTry = await this.net.wsSoc.doChatFindChannels(msg);
+
+     //console.log(`doUpdateBorgRegistry():: doTry`,doTry);
+     //const html = this.buildUserRows(doTry.json.tRec);
+     //console.log(`doUpdateBorgRegistry():: html`,html);
+     j.html   = ""; //html;
+     j.result = true;
+     j.action = j.req;
+
+     res.end(JSON.stringify(j));
+   }
    async doQryMemberSendTo(j,res){
      console.log(`doQryMemberSendTo():: `,j);
 
@@ -1952,15 +1978,16 @@ class bitMonkyWallet{
        maxRows : j.parms.maxRows,
        reqId : crypto.randomUUID()
      }
-     console.log(`doUpdateBorgRegistry():: `,msg);
+     console.log(`doQryMemberSendTo():: `,msg);
      let doTry = await this.net.PTree.mailTreeRegisterBorgUser(msg);
 
-     console.log(`doUpdateBorgRegistry():: doTry`,doTry);
+     console.log(`doQryMemberSendTo():: doTry`,doTry);
      const html = this.buildUserRows(doTry.json.tRec);
-     console.log(`doUpdateBorgRegistry():: html`,html);
+     console.log(`doQryMemberSendTo():: html`,html);
      j.html   = html;
      j.result = true;
      j.action = j.req;
+     console.log(`doQryMemberSendTo():: reponse is`,j);
 
      res.end(JSON.stringify(j));
    }

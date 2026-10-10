@@ -23,7 +23,6 @@ var borgMUID    = null;
 var borgNic     = null;
 var borgIcon    = null;
 var borgChanId  = null;
-var borgLounge  = null;
 var chatSpot    = null;
 var videoFObj   = null;
 var mailCache   = [];
@@ -73,6 +72,10 @@ function handleBorgMsg(msg){
     doOpenBorgChannel(msg.msg);
     return;
   }
+  if (msg.req === 'postChannelSearch'){
+    doPostChannelSearch(msg.html);
+    return;
+  }
   if (msg.req === 'createBorgChannel'){
     msg.data.users.push({muid:borgMUID,nic:borgNic,icon:borgIcon});
     console.log('createBorgChannel:: created',msg.data);
@@ -117,7 +120,7 @@ function doPostNewBorgChat(msg){
 function doOpenBorgChannel(msg){
   const chan = msg.chan;
   borgChanId = chan.chanID;
-  borgLounge = borgChanId;
+  if (borgLounge === null) borgLounge = borgChanId;
   const title  = document.getElementById('sideChatTitle');
   if (title) title.innerHTML = chan.title;
   chatSpot = document.getElementById('wzStreamDisplay'); 
@@ -143,6 +146,12 @@ function chanRollout(div, state) {
   // Render all existing chats
   display.innerHTML = state.chats.map(chat => renderChatMessage(chat, userMap)).join('');
   scrollChatToBottom();
+}
+function doPostChannelSearch(html){
+  console.log(`doPostChannelSearch(html)::`,html);
+  const container = document.getElementById('channelSearchResults');
+  container.innerHTML = html;
+  return;
 }
 function scrollChatToBottom() {
     console.log(`scrollChatToBottom():: `);
@@ -831,7 +840,7 @@ async function doCreateBorgChannel(formData) {
 function openChannelById(chanID){
     let conf = confirm('Change Channel Now?');
     if (!conf) return;
-
+    hideDiv('borgChannelSearch');
     sendRequest({
       req    : "openChannelById",
       chanID : chanID,
@@ -1293,6 +1302,15 @@ function handleResponse(j) {
       action: "qryMemberSendTo"
     });
   }
+  if (j.action === "searchChannels") {
+    showDiv("borgChannelSearch");
+    //doShowQryResults(j);
+    createAutoSelect({
+      title: "Search Channels",
+      promt: "Type Topic",
+      action: "searchChannelsAutoQry"
+    },'autoSearchChanSpot','channelSearchResults');
+  }
 
   if (j.req === "useNewWallet") {
     if (j.result) {
@@ -1638,6 +1656,7 @@ function getSearchHTML(){
   return htm;
 }
 function sendRequest(msg,extendedTime=50){
+    console.log(`sendReques():: msg`,msg);
     msg.PIN = PIN;
     if (!msg.service){
       msg.service = service;
@@ -1761,28 +1780,27 @@ function getSearchHTML() {
 function doPutQryResults(j) {
   var spot = document.getElementById('putQryResults');
   if (spot) {
-    console.log('Updating AutoSelect DIV');
+    console.log('Updating AutoSelect DIV',j);
     spot.innerHTML = j.html;
   }
 }
 
-function createAutoSelect(opt) {
-  var spot = document.getElementById('autoSelSpot');
+function createAutoSelect(opt,autoSpot='autoSelSpot',target='putQryResults') {
+  var spot = document.getElementById(autoSpot);
   console.log('autoSelSpot', spot);
 
   if (spot) {
-    qryAction = opt.action;
-
+    console.log(`createAutoSelect() qryAction`,qryAction);
     spot.innerHTML =
       "<h2><span style='padding:6px;background:#111111;border-radius:.5em;'>" +
       opt.title +
       "</span></h2>" +
-      "<form ID='getLocation' name='wzLocationFrm'>" +
-      "<input type='text' style='font-size:larger;' name='flocation' " +
+      `<form ID='frm${target}'>` +
+      `<input type='text' style='font-size:larger;' name='input${target}' ` +
       " autocomplete='off' autocorrect='off' autocapitalize='off' spellcheck='false' " +
       "placeholder='" + opt.promt + "' " +
-      "oninput='doClick(event, \"" + opt.action + "\");'>" +
-      "<div ID='putQryResults'></div>";
+      `oninput='doClick(event, "${opt.action}","${target}");'>` +
+      `<div ID='${target}'></div>`;
   }
 }
 
@@ -1804,12 +1822,13 @@ function undoHighlight(row) {
   wzoutput.style.background = "#232425";
 }
 
-function doClick(e, action) {
-  getMatchingList(action);
+function doClick(e, action,target='putQryResults') {
+  qryAction = action;
+  getMatchingList(action,target);
 }
 
-function getMatchingList(action) {
-  var qry = document.getElementById("getLocation").elements["flocation"].value;
+function getMatchingList(action,target) {
+  var qry = document.getElementById(`frm${target}`).elements[`input${target}`].value;
   qry = mkyTrim(qry).replace(/,/g, '').replace(/-/g, '').replace(/  /g, ' ');
   const maxRows = 20;
   if (qry !== "") {
@@ -1818,7 +1837,7 @@ function getMatchingList(action) {
       parms: { mode: MODE, qry, maxRows }
     });
   } else {
-    document.getElementById("putQryResults").innerHTML = "";
+    document.getElementById(target).innerHTML = "";
   }
 }
 

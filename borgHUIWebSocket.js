@@ -62,6 +62,17 @@ class BorgHUIWebSocket extends EventEmitter {
     });
     return false;
   }
+  async doChatFindChannels(j){
+    const borgToken = this.net.wallet.getBorgToken();
+
+    this.send({
+      type     : 'req',
+      req      : 'findChannel',
+      data     : j,
+      borgToken: borgToken
+    });
+    return false;
+  }
   async openBorgChannelById(chanID){
     const borgToken = this.net.wallet.getBorgToken();
 
@@ -286,6 +297,9 @@ class BorgHUIWebSocket extends EventEmitter {
       case 'createBorgChannel':
         this._handleRoomCreated(message);
         break;
+      case 'findChannel':
+        this._handleFindChannel(message);
+        break;
       case 'borgUserJoined':
         this._handleBorgUserJoined(message);
         break;
@@ -348,7 +362,26 @@ class BorgHUIWebSocket extends EventEmitter {
     this.authenticated = false;
     this.emit('auth_failed', message);
   }
+  _handleFindChannel(msg){
+    console.log(`_handleFindChannel(msg):: `,msg);
+     const chans = msg?.original?.json?.tRec || [];
+     let htm = "<div style='padding:.5em;'>";
+     if (chans.length === 0){
+       htm += "<div style='color:#999999;'>No Channels found.</div>";
+     } else {
+       for (const u of chans){
+         const chanId = u.ccMasterID;
+         const topic = u.ccTopic || 'Topic Unknown';
+         const desc = (u.ccDescription || '').slice(0, 250);
+         htm += `<div style='padding:.5em;border-bottom:1px solid #333;cursor:pointer;' 
+           onclick="openChannelById('${chanId}')"><span style='color:white;'>${topic}</span><br/>
+           <span style='color:#888;'>${desc}</span></div>`;
+       }
+     }
+     htm += '</div>';
 
+    this.net.pushEvent('borg-event',{req:"postChannelSearch",html: htm});
+  }
   _handleChatMessage(message) {
     const { chanId, chatMessage } = message;
     

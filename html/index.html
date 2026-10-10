@@ -418,10 +418,20 @@ width: 100%;  --button-font-weight: var(--font-weight-normal); --button-margin-b
     <div ID="borgChatAction" class='mainChat' align="right" style="padding-right:.5em">
       <input type="button" value="Create Channel" onclick="createBorgChannel();">
       <input type="button" value="Lounge" onclick="openChannelById(borgLounge);">
-
+      <input type="button" value="?"      onclick="handleResponse({action: 'searchChannels',html: ''});">
     </div>
+
     <div ID="borgChatLoading" style="display:none;">
-    <div style='padding:.5em;display:inline;height:28px;color:#777777;' ><div class='mkyloader'></div>Assimilating User Input...</div>
+      <div style='padding:.5em;display:inline;height:28px;color:#777777;' ><div class='mkyloader'></div>Assimilating User Input...</div>
+    </div>
+
+    <div ID="borgChannelSearch" class="infoCardClear" style="display:none;background:#151617;padding:0.5em;">
+      <div class="mainChat" style="background:#151617;padding:0.5em;color:white;">
+        <div align="right" style="background:none;">
+          <input type="button" value=" Close " onclick="hideDiv('borgChannelSearch');">
+        </div>
+        <div ID="autoSearchChanSpot"></div>
+      </div>
     </div>
 
     <div style="padding:1.5em 0em;color:white; auto; scrollbar-width: none; -ms-overflow-style: none;" ID="wzStreamDisplay"></div>
