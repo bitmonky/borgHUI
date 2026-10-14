@@ -395,9 +395,9 @@ function renderOrderBook() {
   var sells = document.getElementById('gjexSellBook');
   if (!buys || !sells) return;
 
-  // Sells come in cheapest-first from the matching engine; display
-  // cheapest at the bottom so the spread sits in the middle.
-  var sellRows = gjexBuysSum ? null : null; // placeholder, sums computed below
+  // Sells come in cheapest-first from the matching engine; the display
+  // loop below walks them in reverse so the cheapest sits closest to
+  // the spread, with bids meeting it from underneath.
   var sRows = gjexBuildSum(gjexSells.slice());
   var bRows = gjexBuildSum(gjexBuys.slice());
 
@@ -424,7 +424,6 @@ function renderOrderBook() {
   bh += "<div class='gjexBookTotal'>Total: " + gjexFmtShort(maxB) + " " + gjexEscape(pairQuote) + "</div>";
   buys.innerHTML = bh;
 }
-
 // -------------------------------------------------------
 // Trade history
 // -------------------------------------------------------
