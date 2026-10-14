@@ -52,6 +52,11 @@ function noenter() {
 
 function handleBorgMsg(msg){
   console.log(`handleBorgMsg():: msg`,msg);
+  if (msg.req && msg.req.indexOf('gjex') === 0) {
+    gjexHandleBorgEvent(msg);
+    return;
+  }
+
   if (msg.req === 'updateUpload'){
     doUpdateUpload(msg);
     return;
@@ -97,6 +102,9 @@ function handleBorgMsg(msg){
     }
     doUpdateFullMemory(msg); 
   }
+}
+function gjexHandleBorgEvent(msg){
+  console.log(`gjexHandleBorgEvent():: `,msg);
 }
 function doOpenBorgChannelById(chanID){
   console.log(`doOpenBorgChannelById(chanID):: `,chanID);
@@ -1277,6 +1285,13 @@ function handleResponse(j) {
   if (j.action === "sendBorgFileSys") doShowBorgFileSys(j);
   if (j.action === "sendBorgMailSys") doShowBorgMailSys(j);
   if (j.action === "sendBorgGjexSys") doShowBorgGjexSys(j);
+  if (j.action === 'gjexPlaceBuy')    gjexHandlerPlaceBuy(j);
+  if (j.action === 'gjexPlaceSell')   gjexHandlerPlaceSell(j);
+  if (j.action === 'gjexCancelOrder') gjexHandlerCancel(j);
+  if (j.action === 'gjexQryBook')     gjexHandlerBook(j);
+  if (j.action === 'gjexQryTrades')   gjexHandlerTrades(j);
+  if (j.action === 'gjexQryMyOrders') gjexHandlerMyOrders(j);
+  if (j.action === 'gjexQryBalances') gjexHandlerBalances(j);
 
   if (j.action === "qryMailUsers") {
     if (typeof handlerUserSearch === 'function') handlerUserSearch(j);

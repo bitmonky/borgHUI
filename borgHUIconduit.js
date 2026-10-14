@@ -789,7 +789,7 @@ class bitMonkyWSrv extends  EventEmitter {
           
      try {
        j = JSON.parse(msg);
-       console.log(`handleRequest():: values:`,j);
+       //console.log(`handleRequest():: values:`,j);
 
        if (j.req){
          if (j.req == 'useNewWallet'){
@@ -947,7 +947,10 @@ class bitMonkyWSrv extends  EventEmitter {
            await this.wallet.doHandleBorgGjexSys(j,res);
            return;
          }
-       
+         if (j.req && j.req.indexOf('gjex') === 0) {
+           this.wallet.gjexHandleBorgEvent(j,res);
+           return;
+         }
          if (j.req  === 'getFileFromRepo'){
             this.getFileFromRepo(req,j, res);
             return;
@@ -2281,6 +2284,22 @@ class bitMonkyWallet{
       }
     }
     res.end('doHandleBorgFileSys():: Failed.. no endpoint found');
+  }
+  gjexHandleBorgEvent(msg,res){
+    console.log(`gjexHandleBorgEvent():: `,msg);
+    const jsCode = '';
+
+    const j = {
+      action : msg.req,
+      result : true,
+      html   : 'htm',
+      js     : jsCode,
+      jsID   : this.calculateHash(jsCode),
+      pMUID  : this.ownMUID
+    };
+
+    res.end(JSON.stringify(j));
+    return;
   }
   async doHandleBorgGjexSys(m, res) {
     console.log(`doHandleBorgGjexSys():: `, m);
