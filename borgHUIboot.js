@@ -628,6 +628,7 @@ function getSendShellsToMbr(muid,nic,icon) {
 
 function doCloseWalletOpt() {
   showDiv("transactionSpot");
+  hideDiv("serviceMenu");
 }
 
 function cancelSendShells() {
@@ -743,6 +744,7 @@ function doSendUpdateResByUrl(url, res, callbck = null, extendTime = 50) {
 }
 
 function doSendBorgFileSys() {
+  showDiv("serviceMenu");
   hideDiv(`servSidePanel`);
   sendRequest({
     req: "sendBorgFileSys",
@@ -759,6 +761,7 @@ function doSendStoresReq() {
 
 function doSendWalletOptions() {
   hideDiv("transactionSpot");
+  showDiv("serviceMenu");
   sendRequest({
     req: "sendWalletOptions",
     parms: { mode: MODE }
@@ -1098,6 +1101,7 @@ function loadHashQry(n, qry) {
 
 function doSendPeerMemQry(hashStr = null) {
   hideDiv("transactionSpot");
+  showDiv("serviceMenu");
 
   var cqry = document.getElementById("peerMemQry");
   var qry = hashStr || cqry.value || "";
@@ -1272,6 +1276,8 @@ function handleResponse(j) {
   if (j.action === "sendStoresList") doShowStoresList(j);
   if (j.action === "sendBorgFileSys") doShowBorgFileSys(j);
   if (j.action === "sendBorgMailSys") doShowBorgMailSys(j);
+  if (j.action === "sendBorgGjexSys") doShowBorgGjexSys(j);
+
   if (j.action === "qryMailUsers") {
     if (typeof handlerUserSearch === 'function') handlerUserSearch(j);
     return;
@@ -1555,16 +1561,51 @@ function doShowBorgMailSys(j) {
     document.body.appendChild(spot);
   }
 }
+function doShowBorgGjexSys(j) {
+  var spot = document.getElementById("serviceMenu");
+
+  if (spot) {
+    spot.innerHTML = j.html;
+
+    if (j.js) {
+      var old = document.getElementById(j.jsID);
+      if (old) old.remove();
+
+      var script = document.createElement("script");
+      script.id = j.jsID;
+      script.type = "text/javascript";
+      script.textContent = j.js;
+      document.head.appendChild(script);
+    }
+  } else {
+    spot = document.createElement("DIV");
+    spot.id = "serviceMenu";
+    spot.innerHTML = j.html;
+    document.body.appendChild(spot);
+  }
+  gjexBoot();
+}
 
 function doSendBorgMailSys() {
   hideDiv(`servSidePanel`);
   hideDiv(`transactionSpot`);
+  showDiv("serviceMenu");
+
   sendRequest({
     req: "sendBorgMailSys",
     parms: { mode: MODE }
   });
 }
+function doSendBorgGjexSys() {
+  hideDiv(`servSidePanel`);
+  hideDiv(`transactionSpot`);
+  showDiv("serviceMenu");
 
+  sendRequest({
+    req: "sendBorgGjexSys",
+    parms: { mode: MODE }
+  });
+}
 function doUpdateResByUrl(j) {
   console.log(`doUpdateResByUrl():: j`,j);
   var spot = document.getElementById(j.res);

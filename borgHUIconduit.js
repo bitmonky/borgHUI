@@ -32,6 +32,7 @@ const {BorgHUIstreamMgr} = require('./borgHUIstreamMgr.js');
 const {BorgHUIptreeAPI}  = require("./borgHUIptreeAPI.js");
 const {BorgHUIFileMgrUI} = require("./borgHUIFileMgrUI.js");
 const {BorgHUIMailUI}    = require("./borgHUIMailUI.js");
+const {BorgHUIGjexUI}    = require("./borgHUIgjexUI.js");
 const {BorgHUIBorgPay}   = require("./borgHUIBorgPay.js");
 const borgMnemonic       = require("./borgHUIMnemonic.js");
 const {SecureMnemonicStorage} = borgMnemonic;
@@ -443,6 +444,7 @@ class bitMonkyWSrv extends  EventEmitter {
     this.PTree      = new BorgHUIptreeAPI(this);
     this.UI         = new BorgHUIFileMgrUI(this);
     this.MailUI     = new BorgHUIMailUI(this);
+    this.GjexUI     = new BorgHUIGjexUI(this);
     this.BPay       = new BorgHUIBorgPay(this);
     this.wallet     = new bitMonkyWallet(this);
     this.wcj        = null; // wallet conf json data; 
@@ -787,7 +789,7 @@ class bitMonkyWSrv extends  EventEmitter {
           
      try {
        j = JSON.parse(msg);
-       //console.log(`handleRequest():: values:`,j);
+       console.log(`handleRequest():: values:`,j);
 
        if (j.req){
          if (j.req == 'useNewWallet'){
@@ -941,7 +943,11 @@ class bitMonkyWSrv extends  EventEmitter {
            await this.wallet.doHandleBorgMailSys(j,res);
            return;
          }
-
+         if (j.req === 'sendBorgGjexSys' || j.req === 'borgGjexUpdateResByUrl'){
+           await this.wallet.doHandleBorgGjexSys(j,res);
+           return;
+         }
+       
          if (j.req  === 'getFileFromRepo'){
             this.getFileFromRepo(req,j, res);
             return;
@@ -2275,6 +2281,64 @@ class bitMonkyWallet{
       }
     }
     res.end('doHandleBorgFileSys():: Failed.. no endpoint found');
+  }
+  async doHandleBorgGjexSys(m, res) {
+    console.log(`doHandleBorgGjexSys():: `, m);
+
+    if (m.req === 'sendBorgGjexSys') {
+      m.url = m.service.endPoint;
+      await this.doRenderGjexSys(m, res);
+      return;
+    }
+    if (m.req === 'borgGjexUpdateResByUrl') {
+      m.url = m.parms.url;
+      if (m.url.startsWith('/whzon/bitMiner/sendBorgGjex')) {
+        await this.doRenderGjexSys(m, res);
+        return;
+      }
+    }
+    res.end('doHandleBorgGjexSys():: Failed.. no endpoint found');
+  }
+
+  async doRenderGjexSys(m, res) {
+    // 1. Build trading context from GET string
+    console.log(`doRenderGjexSys():: m.url`, m.url);
+
+    const urlObj      = new URL(m.url, "http://localhost");
+    const queryString = urlObj.search.replace(/^\?/, "");
+
+    const ctx = await this.net.GjexUI.initGjexContextFromGET(queryString);
+
+    // 2. Build HTML
+    const htm = await this.net.GjexUI.getGjexPage(queryString);
+
+    // 3. Load JS template
+    let jsCode = fs.readFileSync('./borgHUIgjexJS.js', 'utf8');
+
+    // 4. Inject server-side values into the JS code
+    jsCode =
+      `// Injected by BorgHUI\n` +
+      `var ownMUID      = "${ctx.ownMUID}";\n` +
+      `var pairBase     = "${ctx.pairBase}";\n` +
+      `var pairQuote    = "${ctx.pairQuote}";\n` +
+      `var dogeBalance  = "${ctx.dogeBalance}";\n` +
+      `var shellBalance = "${ctx.shellBalance}";\n` +
+      `var fiatPerQuote = ${ctx.fiatPerQuote || 0};\n` +
+      `var queryString  = "${m.url.replace(/"/g, '\\"')}";\n\n` +
+      jsCode;
+
+    // 5. Build response object
+    const j = {
+      action : m.req,
+      result : true,
+      html   : htm,
+      js     : jsCode,
+      jsID   : this.calculateHash(jsCode),
+      pMUID  : this.ownMUID
+    };
+
+    res.end(JSON.stringify(j));
+    return;
   }
   async doHandleBorgMailSys(m, res) {
     console.log(`doHandleBorgMailSys():: `, m);
