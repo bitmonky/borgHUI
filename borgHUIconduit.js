@@ -38,7 +38,9 @@ const borgMnemonic       = require("./borgHUIMnemonic.js");
 const {SecureMnemonicStorage} = borgMnemonic;
 const {BorgHUImemoryMgr} = require("./borgHUImemoryMgr.js");
 const {BorgHUIWebSocket} = require("./borgHUIWebSocket.js");
+const borgDiff           = require("./borgHUIDiff.js");
 const mailCrypto         = require("./borgHUImailCrypto.js");
+
 const maxUpLoadSize = 100000000000; // 1Gig
 
 const { generateKeyPairSync } = require('crypto')
@@ -951,6 +953,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.gjexHandleBorgEvent(j,res);
            return;
          }
+         if (j.req === 'restoreFileVersion'){
+           await this.wallet.doRestoreFileVersion(j,res);
+           return;
+         }
          if (j.req  === 'getFileFromRepo'){
             this.getFileFromRepo(req,j, res);
             return;
@@ -1095,6 +1101,289 @@ class bitMonkyWSrv extends  EventEmitter {
   }
   catch (err) {
     console.log("doCheckSumLookup():: failed:", msg, service, err);
+    return null;
+  }
+}
+async doUpdateFileVersion(m,res){
+
+
+  // m.url query carries: rname, fname, path, folderID, oldFuid, newFuid,
+  // oldCheckSum, newCheckSum, newFilePath, newMime, newSize
+  const u = new URL(m.url, 'http://localhost');
+  const q = (k) => u.searchParams.get(k);
+  const rname     = q('rname');
+  const fname     = q('fname');
+  const path      = q('path') || '/';
+  const folderID  = q('folderID') ? Number(q('folderID')) : 0;
+  const oldFuid   = q('oldFuid');
+  const newFuid   = q('newFuid');
+  const oldCheck  = q('oldCheckSum');
+  const newCheck  = q('newCheckSum');
+  const newPath   = q('newFilePath');
+  const newMime   = q('newMime') || 'application/octet-stream';
+
+  // Text files get a version row + a diff memory. Everything else is a
+  // plain replace: upload already happened, delete the old head, done.
+  if (!borgDiff.isTextMime(newMime)){
+    return this.doReplaceBinary(m, res);
+  }
+  const newSize   = q('newSize') ? Number(q('newSize')) : 0;
+
+  if (!oldFuid || !newFuid || !newPath){
+    res.end(JSON.stringify({result:false,action:m.req,msg:'missing params'}));
+    return;
+  }
+
+  // 1. Lineage ID, deterministic across uploads.
+  const lineageID = this.computeLineageID(rname, path, folderID, fname);
+
+  // 2. Fetch the old head bytes. Reuse the conduit's existing fetch path,
+  //    writing into downloads/<oldCheck>.tmp.
+  const oldTmpPath = `downloads/${oldCheck}.tmp`;
+  const fetchedOld = await this.ensureLocalCopy(oldCheck, oldTmpPath);
+  if (!fetchedOld){
+    res.end(JSON.stringify({result:false,action:m.req,msg:'old version fetch failed'}));
+    return;
+  }
+
+  // 3. Compute the diff.
+  let diffBody;
+  try {
+    diffBody = await borgDiff.diffForKind(newMime, oldTmpPath, newPath, fname, fname);
+  } catch(err){
+    console.log('doUpdateFileVersion():: diff failed',err);
+    res.end(JSON.stringify({result:false,action:m.req,msg:'diff failed: '+err.message}));
+    return;
+  }
+
+  // 4. Determine the next version number from the current lineage head.
+  const lin = await this.net.PTree.ftreeGetFileLineage(lineageID);
+  const prior = (lin?.json?.versions && lin.json.versions[0]) || null;
+  const nextVersion = prior ? prior.fverVersion + 1 : 1;
+  const parentFUID  = prior ? prior.fverFUID : null;
+
+  // 5. Persist a BorgFileDiff memory.
+  const memBody = {
+    memType    : 'BorgFileDiff',
+    lineageID,
+    version    : nextVersion,
+    parentFUID,
+    fverFUID   : newFuid,
+    fileName   : fname,
+    filePath   : path,
+    folderID,
+    fileType   : newMime,
+    repoOwner  : this.ownMUID,
+    repoName   : rname,
+    oldCheckSum: oldCheck,
+    newCheckSum: newCheck,
+    oldSize    : diffBody.oldSize,
+    newSize    : diffBody.newSize,
+    diff       : diffBody,
+    authorMUID : this.ownMUID,
+    timestamp  : Date.now()
+  };
+  const memStr  = JSON.stringify(memBody);
+  const memHash = this.calculateHash(memStr);
+
+  const diffMemID = await this.storeDiffMemory(memBody, memStr, memHash);
+  if (!diffMemID){
+    res.end(JSON.stringify({result:false,action:m.req,msg:'diff memory store failed'}));
+    return;
+  }
+
+  // 6. Sign the version row.
+  const rowForSig = {
+    fverLineageID : lineageID,
+    fverVersion   : nextVersion,
+    fverParentFUID: parentFUID,
+    fverFUID      : newFuid,
+    fverCheckSum  : newCheck,
+    fverAuthorMUID: this.ownMUID,
+    repoID_master : null,     // cell fills from repo; not part of sig check on cell side
+    fverFileName  : fname,
+    fverFilePath  : path,
+    fverFolderID  : folderID,
+    fverFileSize  : newSize,
+    fverFileType  : newMime
+  };
+  // Recompute with the same token string the cell will use.
+  const token = [
+    lineageID, nextVersion, parentFUID || '',
+    newFuid, newCheck, this.ownMUID,
+    '', // repoID_master not known here; cell passes '' to match
+    fname, path, String(folderID ?? ''), String(newSize), newMime
+  ].join('|');
+  const sig = {
+    ownMUID  : this.ownMUID,
+    token,
+    pubKey   : this.publicKey,
+    signature: this.signMsg(token)
+  };
+
+  const versionPayload = {
+    repoID_master : null,   // cell resolves from repo
+    lineageID,
+    version       : nextVersion,
+    parentFUID,
+    fverFUID      : newFuid,
+    checkSum      : newCheck,
+    fileName      : fname,
+    filePath      : path,
+    folderID,
+    fileSize      : newSize,
+    fileType      : newMime,
+    diffMemID,
+    sig
+  };
+
+  const ins = await this.net.PTree.ftreeInsertFileVersion(
+    { from: this.ownMUID, name: rname },
+    versionPayload
+  );
+  console.log(`doUpdateFileVersion():: insertFileVersion`,ins);
+
+  if (!(ins?.json?.result === true)){
+    // Memory already stored; report partial success so the caller can retry.
+    res.end(JSON.stringify({
+      result:false, action:m.req,
+      msg : 'version row insert failed: ' + (ins?.json?.msg || 'unknown'),
+      orphanDiffMemID: diffMemID
+    }));
+    return;
+  }
+
+  // 7. Now retire the old head. Failure here leaves two heads; retry later.
+  const delUrl = `/whzon/bitMiner/borgDelFileFromRepo.php` +
+    `?wzID=DESKTOP&rname=${encodeURIComponent(rname)}` +
+    `&fname=${encodeURIComponent(fname)}` +
+    `&path=${encodeURIComponent(path)}` +
+    `&folderID=${folderID}` +
+    `&ownerMUID=${encodeURIComponent(this.ownMUID)}` +
+    `&fuid=${encodeURIComponent(oldFuid)}`;
+
+  let retired = null;
+  try {
+    retired = await this.net.UI.deleteFileFromRepoGET(delUrl.replace('/whzon/bitMiner/borgDelFileFromRepo.php',''));
+  } catch(err){
+    console.log('doUpdateFileVersion():: retire old head failed',err);
+  }
+
+  // 8. Idempotent set of diffMemID on the row (in case step 6 wrote without it).
+  try {
+    await this.net.PTree.ftreeSetFileVersionDiffMem(lineageID, nextVersion, diffMemID);
+  } catch(_) {}
+
+  res.end(JSON.stringify({
+    result   : true,
+    action   : m.req,
+    lineageID,
+    version  : nextVersion,
+    parentFUID,
+    fverFUID : newFuid,
+    diffMemID,
+    retiredOldHead: !!retired
+  }));
+}
+async doReplaceBinary(m, res){
+  const u = new URL(m.url, 'http://localhost');
+  const q = (k) => u.searchParams.get(k);
+  const rname   = q('rname');
+  const fname   = q('fname');
+  const path    = q('path') || '/';
+  const folderID= q('folderID') ? Number(q('folderID')) : 0;
+  const oldFuid = q('oldFuid');
+
+  const delUrl = `/whzon/bitMiner/borgDelFileFromRepo.php` +
+    `?wzID=DESKTOP&rname=${encodeURIComponent(rname)}` +
+    `&fname=${encodeURIComponent(fname)}` +
+    `&path=${encodeURIComponent(path)}` +
+    `&folderID=${folderID}` +
+    `&ownerMUID=${encodeURIComponent(this.ownMUID)}` +
+    `&fuid=${encodeURIComponent(oldFuid)}`;
+
+  let retired = null;
+  try {
+    retired = await this.net.UI.deleteFileFromRepoGET(
+      delUrl.replace('/whzon/bitMiner/borgDelFileFromRepo.php','')
+    );
+  } catch(err){
+    console.log('doReplaceBinary():: retire failed', err);
+  }
+
+  res.end(JSON.stringify({
+    result : true,
+    action : m.req,
+    kind   : 'binary-replace',
+    retiredOldHead: !!retired
+  }));
+}
+computeLineageID(rname, path, folderID, fname){
+  const normPath = (path === '/' || !path) ? '/' : path.replace(/^\//,'');
+  const fid      = (folderID === null || folderID === undefined) ? '0' : String(folderID);
+  const token    = `${this.ownMUID}|${rname}|${normPath}|${fid}|${fname}`;
+  return this.calculateHash(token).slice(0, 24);   // matches hashToBase58 length
+}
+
+async ensureLocalCopy(checkSum, targetPath){
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(targetPath) && fs.statSync(targetPath).size > 0){
+      const h = await this.net.DStream.getHash(targetPath);
+      if (h === checkSum) return targetPath;
+      fs.unlinkSync(targetPath);
+    }
+    const p = await this.net.portal.selectPortal('shardTreeCell');
+    const service = {
+      endPoint : '/netREQ/',
+      filename : targetPath,
+      host     : p.host,
+      port     : p.port,
+      raw      : true
+    };
+    // The conduit already has an id-keyed fetch on the tree; use it here.
+    const doTry = await this.net.PTree.ftreeGetFileFromRepoById(this.ownMUID, checkSum);
+    if (!doTry?.json?.file?.fileInfo?.fileSize) return null;
+    await this.net.DStream.streamRepoFileFrom(service, doTry.json, null, targetPath);
+    // streamRepoFileFrom resolves when the temp file is complete;
+    // verify hash.
+    const h2 = await this.net.DStream.getHash(targetPath);
+    return h2 === checkSum ? targetPath : null;
+  } catch(err){
+    console.log('ensureLocalCopy():: ',err);
+    return null;
+  }
+}
+
+async storeDiffMemory(memBody, memStr, memHash){
+  try {
+    // Text diffs get the LLM keyword treatment; binaries use a hand-built set.
+    let weights;
+    if (memBody.diff.kind === 'text-unified'){
+      const r = await this.net.MStream.doStoreMemory({
+        ...memBody,
+        memID: memHash,
+        memType: 'BorgFileDiff'
+      });
+      if (r === true || r === null) return memHash;
+      // fallthrough to manual store if LLM path bailed
+    }
+    weights = borgDiff.makeDiffWeights({
+      fileName : memBody.fileName,
+      lineageID: memBody.lineageID,
+      version  : memBody.version,
+      fileType : memBody.fileType
+    }, memBody.diff.kind === 'text-unified'
+        ? [memBody.fileName, `v${memBody.version}`]
+        : []).keyWords;
+
+    const j = await this.net.PTree.ptreeStoreMem(
+      this.ownMUID, memHash, memStr, 'BorgFileDiff', 3, weights
+    );
+    if (j?.json?.result === 'memOK' || j?.json?.result === true) return memHash;
+    return null;
+  } catch(err){
+    console.log('storeDiffMemory():: ',err);
     return null;
   }
 }
@@ -1763,6 +2052,45 @@ class bitMonkyWallet{
        return false;
      }
    }
+   async doRestoreFileVersion(j,res){
+     const { fverFUID, version } = j.parms || {};
+     if (!fverFUID){
+       res.end(JSON.stringify({result:false, action:j.req, msg:'fverFUID required'}));
+       return;
+     }
+     // Find the version record for that FUID to learn its checkSum, name, path.
+     // (Cell-side getFileLineage does the heavy lifting; here we only need the
+     //  one row.)
+     const ins = await this.net.PTree._postJSON('ftreeFileMgrCell', {
+       msg: { req: 'getFileLineageByFuid', fuid: fverFUID }
+     });
+     const rec = ins?.json?.version;
+     if (!rec){
+       res.end(JSON.stringify({result:false, action:j.req, msg:'version record not found'}));
+       return;
+     }
+     // Ensure we have the bytes locally, then run through the same update
+     // pipeline as a normal edit.
+     const target = `downloads/${rec.fverCheckSum}.tmp`;
+     const got = await this.ensureLocalCopy(rec.fverCheckSum, target);
+     if (!got){
+       res.end(JSON.stringify({result:false, action:j.req, msg:'could not fetch version bytes'}));
+       return;
+     }
+     // Compose a synthetic update url and hand it back to the browser, which
+     // will upload these bytes through storeRepoFileOnTree exactly as if the
+     // user had just edited the file. That keeps a single write path.
+     res.end(JSON.stringify({
+       result:true,
+       action:j.req,
+       restoredFromVersion: version,
+       localPath: target,
+       checkSum : rec.fverCheckSum,
+       fileName : rec.fverFileName,
+       filePath : rec.fverFilePath,
+       fileType : rec.fverFileType
+     }));
+   }
    async doSendBorgChatMsg(j,res){
      console.log(`doSendBorgChatMsg():: `,j);
      let doTry = await this.net.PTree.askTheBorg(this.ownMUID,j.parms.prompt);
@@ -2280,6 +2608,10 @@ class bitMonkyWallet{
       }
       if (m.url.startsWith(`/whzon/bitMiner/createRepoFolder.`)){
         await this.doCreateRepoFolder(m,res);
+        return;
+      }
+      if (m.url.startsWith(`/whzon/bitMiner/borgUpdateFileVersion`)){
+        await this.doUpdateFileVersion(m,res);
         return;
       }
     }
