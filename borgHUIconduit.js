@@ -791,7 +791,7 @@ class bitMonkyWSrv extends  EventEmitter {
           
      try {
        j = JSON.parse(msg);
-       //console.log(`handleRequest():: values:`,j);
+       console.log(`handleRequest():: values:`,j);
 
        if (j.req){
          if (j.req == 'useNewWallet'){
@@ -952,6 +952,9 @@ class bitMonkyWSrv extends  EventEmitter {
          if (j.req && j.req.indexOf('gjex') === 0) {
            this.wallet.gjexHandleBorgEvent(j,res);
            return;
+         }
+         if (j.req === "getFileLineage") {
+           await this.wallet.doGetFileLineage(j,res);
          }
          if (j.req === 'restoreFileVersion'){
            await this.wallet.doRestoreFileVersion(j,res);
@@ -2051,6 +2054,19 @@ class bitMonkyWallet{
        }
        return false;
      }
+   }
+   async doGetFileLineage(j,res){
+     console.log(`doGetFileLineage(j)::`,j);
+     const { fuid, lineageID } = j.parms || {};
+     if (!fuid && !lineageID){
+       res.end(JSON.stringify({result:false, action:j.req, error:'fuid or lineageID required'}));
+       return;
+     }
+     const ins = await this.net.PTree.ftreeGetFileLineage(lineageID || null, fuid || null);
+     // Cell returns {result, lineageID, versions:[...]}
+     const out = ins?.json || {result:false, versions:[]};
+     out.action = j.req;
+     res.end(JSON.stringify(out));
    }
    async doRestoreFileVersion(j,res){
      const { fverFUID, version } = j.parms || {};

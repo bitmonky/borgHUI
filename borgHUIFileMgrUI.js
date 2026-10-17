@@ -294,6 +294,7 @@ async getBorgFileSys(url) {
         <input ID='avitarButton' type='button' value=' Use As User Avitar '/>
         <input type='button' value=' Create Memory '    ID= 'createBorgMemBut'  onclick='createBorgMemory();'/>
         <input type='button' value=' Delete Repo File ' ID= 'deleteRepoFileBut' onclick='deleteRepoFile();'/>
+        <input type='button' value=' History ' id='fileHistoryBut' onclick='showFileHistory();'/>
         <input type='button' value=' Download '         ID= 'fileDownloadBut'   onclick='downloadRepoFile();'/>
       </div>
 
@@ -536,10 +537,13 @@ async buildRepoSidebarHTML(ctx) {
           if (rec.smgrFileType === "undefined") {
             rec.smgrFileType = "image/jpeg";
           }
+          const vTag = (rec.smgrFVersionNbr && rec.smgrFVersionNbr > 1)
+            ? ` <span style="color:#7c9;">v${rec.smgrFVersionNbr}</span>`
+            : '';
 
           html += `
             <a href='javascript:doGetFileFromRepo("${rname}","${rec.smgrFileName}","${path}","${folderID}","${rec.smgrFileType}",${rec.smgrEncrypted},"${rec.smgrCheckSum}","${rec.smgrFileShaFUID}");'>
-              <div style='padding:.0em .5em .5em 1.5em;'>${left(rec.smgrFileName, 30)}</div>
+              <div style='padding:.0em .5em .5em 1.5em;'>${left(rec.smgrFileName, 30)}${vTag}</div>
             </a>
           `;
         });

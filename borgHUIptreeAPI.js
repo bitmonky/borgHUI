@@ -355,7 +355,23 @@ class BorgHUIptreeAPI {
       msg: { req: "createRepoFolder", repo: { from: muid, name, folder, parent } }
     });
   }
+  async ftreeInsertFileVersion(repo, version){
+    return this._postJSON("ftreeFileMgrCell", {
+      msg: { req: "insertFileVersion", repo, version }
+    });
+  }
 
+  async ftreeGetFileLineage(lineageID){
+    return this._postJSON("ftreeFileMgrCell", {
+      msg: { req: "getFileLineage", lineageID }
+    });
+  }
+
+  async ftreeSetFileVersionDiffMem(lineageID, version, diffMemID){
+    return this._postJSON("ftreeFileMgrCell", {
+      msg: { req: "setFileVersionDiffMem", lineageID, version, diffMemID }
+    });
+  }
   async ftreeGetMyRepos(muid) {
      const borgMasterUID = this.net.borgMasterID;
     return this._postJSON("ftreeFileMgrCell", {

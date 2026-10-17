@@ -410,6 +410,9 @@ var cSpotIDtx = null;
 var videoObj = null;
 
 function doGetFileFromRepo(rname, fName, path, folderID, ftype=null, encrypt=0, chkSum,fuid){
+  window.__currentFile = { fuid, lineageID: chkSum ? null : null, name: fName,ftype, rname, path, folderID };
+  // lineageID is fetched lazily by the history button if missing; see below
+
   hide('avitarButton');
   hide('photoIMG');
   hide('videoSpot');
@@ -662,6 +665,74 @@ async function doCreateBorgMemory(formData) {
         console.error('Error extracting P2P metadata:', err);
         alert('Failed to process memory data.');
     }
+}
+function showFileHistory(){
+  if (!window.__currentFile){
+    alert('No file selected');
+    return;
+  }
+  if (!isTextMime(window.__currentFile.ftype)){
+    alert('Version history is only recorded for text files.'+window.__currentFile.ftype);
+    return;
+  }
+  const f = window.__currentFile;
+  sendRequest({
+    req: "getFileLineage",
+    parms: { lineageID: f.lineageID || null, fuid: f.fuid || null }
+  });
+}
+
+function doShowFileLineage(j){
+  const versions = (j.versions || []).slice().sort((a,b)=>b.fverVersion-a.fverVersion);
+  let html = `<div style='padding:1em;'><h2>Version History</h2>`;
+  if (versions.length === 0){
+    html += `<div style='color:#999;'>No history recorded for this file yet.</div>`;
+  } else {
+    html += `<table style='width:100%;color:#ddd;'>`;
+    html += `<tr><th align='left'>Ver</th><th align='left'>Date</th><th align='left'>Size</th><th align='left'>Checksum</th><th></th></tr>`;
+    for (const v of versions){
+      html += `<tr>
+        <td>v${v.fverVersion}</td>
+        <td>${new Date(v.fverDate).toLocaleString()}</td>
+        <td>${v.fverFileSize}</td>
+        <td><code>${(v.fverCheckSum||'').slice(0,12)}</code></td>
+        <td>
+          <input type='button' value=' Show Diff ' onclick='showDiffMem("${v.fverDiffMemID||''}")'/>
+          <input type='button' value=' Restore ' onclick='restoreFileVersion("${v.fverFUID}", ${v.fverVersion})'/>
+        </td>
+      </tr>`;
+    }
+    html += `</table>`;
+  }
+  html += `<div align='right' style='margin-top:1em;'><input type='button' value=' Close ' onclick='hideDiv("servSidePanel");'/></div></div>`;
+  const spot = document.getElementById('servSidePanel');
+  spot.innerHTML = html;
+  showDiv('servSidePanel');
+}
+function isTextMime(mime){
+  if (!mime) return false;
+  const m = String(mime).toLowerCase();
+  return m.startsWith('text/')
+      || m.includes('application/json')
+      || m.includes('application/javascript')
+      || m.includes('application/xml')
+      || m.includes('application/x-javascript')
+      || m.includes('application/x-sh')
+      || m.includes('application/x-httpd-php');
+}
+function showDiffMem(memID){
+  if (!memID){ alert('No diff memory recorded for this version.'); return; }
+  sendRequest({ req: "displayBorgMemory", parms: { memoryID: memID } });
+}
+
+function restoreFileVersion(fverFUID, version){
+  if (!confirm(`Restore version ${version} as the new head?`)) return;
+  // The restore flow is: pull that version's bytes, then run the same
+  // update pipeline as a normal edit.
+  sendRequest({
+    req: "restoreFileVersion",
+    parms: { fverFUID, version }
+  });
 }
 function downloadRepoFile(fuid){
   console.log(`downloadRepoFile():: `,cfileData);

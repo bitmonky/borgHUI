@@ -1292,6 +1292,7 @@ function handleResponse(j) {
   if (j.action === 'gjexQryTrades')   gjexHandlerTrades(j);
   if (j.action === 'gjexQryMyOrders') gjexHandlerMyOrders(j);
   if (j.action === 'gjexQryBalances') gjexHandlerBalances(j);
+  if (j.action === "getFileLineage") doShowFileLineage(j);
 
   if (j.action === "qryMailUsers") {
     if (typeof handlerUserSearch === 'function') handlerUserSearch(j);
@@ -1398,7 +1399,55 @@ function format(value) {
 /************************************************************
  *  FILE SYS / STORE / TRENDING / QUERY RESULTS
  ************************************************************/
+function doShowFileLineage(j){
+  hideSearching();
+  const spot = document.getElementById('servSidePanel');
+  if (!spot) return;
 
+  const versions = (j.versions || []).slice().sort((a,b)=>b.fverVersion - a.fverVersion);
+
+  let html = `<div style='padding:1em;'>`;
+  html += `<h2>Version History</h2>`;
+  html += `<div style='color:#999;font-size:.9em;margin-bottom:.5em;'>`;
+  html += j.lineageID ? `Lineage: <code>${j.lineageID}</code>` : `Lineage: (none — this file is not versioned)`;
+  html += `</div>`;
+
+  if (versions.length === 0){
+    html += `<div style='color:#999;'>No history recorded for this file.</div>`;
+  } else {
+    html += `<table style='width:100%;color:#ddd;border-collapse:collapse;'>`;
+    html += `<tr>
+      <th align='left' style='padding:.25em .5em;'>Ver</th>
+      <th align='left' style='padding:.25em .5em;'>Date</th>
+      <th align='left' style='padding:.25em .5em;'>Size</th>
+      <th align='left' style='padding:.25em .5em;'>Checksum</th>
+      <th align='left' style='padding:.25em .5em;'></th>
+    </tr>`;
+    for (const v of versions){
+      const date = v.fverDate ? new Date(v.fverDate).toLocaleString() : '—';
+      const cs   = (v.fverCheckSum || '').slice(0, 12);
+      const memID = v.fverDiffMemID || '';
+      html += `<tr style='border-top:1px solid #333;'>
+        <td style='padding:.25em .5em;'>v${v.fverVersion}</td>
+        <td style='padding:.25em .5em;'>${date}</td>
+        <td style='padding:.25em .5em;'>${v.fverFileSize ?? ''}</td>
+        <td style='padding:.25em .5em;'><code>${cs}</code></td>
+        <td style='padding:.25em .5em;text-align:right;'>
+          ${memID ? `<input type='button' value=' Show Diff ' onclick='showDiffMem("${memID}")'/>` : ''}
+          <input type='button' value=' Restore ' onclick='restoreFileVersion("${v.fverFUID}", ${v.fverVersion})'/>
+        </td>
+      </tr>`;
+    }
+    html += `</table>`;
+  }
+
+  html += `<div align='right' style='margin-top:1em;'>`;
+  html += `<input type='button' value=' Close ' onclick='hideDiv("servSidePanel");'/>`;
+  html += `</div></div>`;
+
+  spot.innerHTML = html;
+  showDiv('servSidePanel');
+}
 function doShowSendShellsResult(j) {
   if (j.actionRes) {
     getAccountInfo();
