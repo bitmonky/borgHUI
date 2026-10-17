@@ -955,6 +955,7 @@ class bitMonkyWSrv extends  EventEmitter {
          }
          if (j.req === "getFileLineage") {
            await this.wallet.doGetFileLineage(j,res);
+           return;
          }
          if (j.req === 'restoreFileVersion'){
            await this.wallet.doRestoreFileVersion(j,res);
@@ -2066,6 +2067,7 @@ class bitMonkyWallet{
      // Cell returns {result, lineageID, versions:[...]}
      const out = ins?.json || {result:false, versions:[]};
      out.action = j.req;
+     console.log(`doGetFileLineage():: `,out);
      res.end(JSON.stringify(out));
    }
    async doRestoreFileVersion(j,res){
@@ -3395,7 +3397,7 @@ class bitMonkyWallet{
          });
        });
        req.on('error', error => {
-          console.log(error);
+          console.log(`sendPostRequest():: `,error,msg);
        });
 
        req.write(data);
