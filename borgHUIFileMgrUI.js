@@ -109,6 +109,59 @@ async createRepoFolderGET(queryString) {
   //
   return {result:'OK',newRepo,name,folder,parent};
 }
+async deleteFileFromRepoForReplace(params) {
+  const mbrMUID  = params.ownerMUID || this.net.wallet.ownMUID;
+  const rname    = params.rname     || "";
+  const fname    = params.fname     || "";
+  const path     = params.path      || "";
+  const folderID = params.folderID  ? Number(params.folderID) : 0;
+
+  const fd = await this.net.PTree.ftreeGetFileFromRepo(mbrMUID, rname, fname, path, folderID);
+  if (!fd) {
+    return "Node::ftreeGetFileFromRepo: Failed";
+  }
+
+  if (fd.error || fd.json.result === false) {
+    return {result:false,msg:`File ${fname} Not Found`};
+  }
+
+  const del = await this.net.PTree.ftreeDeleteFileFromRepo(mbrMUID, rname, fname, path);
+  console.log(`deleteFileFromRepoGET():: del-> `,del,fd,mbrMUID, rname, fname, path, folderID);
+  if (!del) {
+    return {result:false,msg:"Node::ftreeDeleteFileFromRepo: Failed"};
+  }
+
+  if (del.error || del.status != 200) {
+    return {result:false,msg:"Node::ftreeDeleteFileFromRepo:del.result Failed "};
+  }
+  if (del.json.result === false){
+    return {result:false,msg:`Node::ftreeDeleteFileFromRep: Failed ${del.json.msg}`};
+  }
+
+  const maxConcurrentRequests = 10;
+  const sTracker = [];
+
+  let tempShards = fd.json.file.shards;
+  let tries = 1;
+
+  while (tempShards.length > 0 && tries <= 2) {
+    console.log(`BORG:FASTDELETE::try ${tries}`);
+
+    await this.net.PTree.fastDeleteFileShards(mbrMUID, tempShards, maxConcurrentRequests, sTracker);
+
+    // Remove successfully deleted shards
+    tempShards = tempShards.filter(s => {
+      const deleted = sTracker.includes(s.shardID);
+      if (deleted) console.log("BORG:UNSET::", s.shardID);
+      return !deleted;
+    });
+
+    tries++;
+  }
+
+  return {result:true, msg:`Message From Borg .:\nFile ${fname} Deleted`};
+}
+
 async deleteFileFromRepoGET(queryString) {
   //
   // 1. Parse GET string into an object
@@ -233,7 +286,7 @@ async getBorgFileSys(url) {
   // ---------------------------------------------------------
   //
   html += `
-    <h1>BorgIOS .: Collective File System</h1>
+    <h2>BorgIOS .: Collective File System</h2>
     <div align='right' style='margin-bottom:.5em;'></div>
   `;
 

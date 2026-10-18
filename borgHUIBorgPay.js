@@ -71,7 +71,7 @@ class BorgHUIBorgPay {
         <input type='button' value=' Hide[>] ' onclick='hideDiv("transactionSpot")'/>
       </div>
 
-      <h1>Borg Tradable Shells Reserve</h1>
+      <h2>Borg Tradable Shells Reserve</h2>
       <p>ID: ${borgAdr}</p>
 
       <p>Master Reserve Contains: ${masterBal.balance.toFixed(3)} BORG Shells

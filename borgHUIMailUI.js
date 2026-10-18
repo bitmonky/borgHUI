@@ -80,7 +80,7 @@ class BorgHUIMailUI {
     // ---------------------------------------------------------
     //
     html += `
-      <h1>BorgIOS .: Collective Mail System</h1>
+      <h2>BorgIOS .: Collective Mail System</h2>
       <div align='right' style='margin-bottom:.5em;'></div>
     `;
 

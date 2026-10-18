@@ -372,6 +372,11 @@ class BorgHUIptreeAPI {
       msg: { req: "setFileVersionDiffMem", lineageID, version, diffMemID }
     });
   }
+  async ftreeFindRepoFile(fileReq){
+    return this._postJSON("ftreeFileMgrCell", {
+      msg: { req: 'repoFileExists', data: fileReq }
+    });
+  }
   async ftreeGetMyRepos(muid) {
      const borgMasterUID = this.net.borgMasterID;
     return this._postJSON("ftreeFileMgrCell", {

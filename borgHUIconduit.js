@@ -953,6 +953,10 @@ class bitMonkyWSrv extends  EventEmitter {
            this.wallet.gjexHandleBorgEvent(j,res);
            return;
          }
+         if (j.req === "repoFileExists") {
+           this.wallet.doRepoFileExists(j,res);
+           return;
+         }
          if (j.req === "getFileLineage") {
            await this.wallet.doGetFileLineage(j,res);
            return;
@@ -965,6 +969,11 @@ class bitMonkyWSrv extends  EventEmitter {
             this.getFileFromRepo(req,j, res);
             return;
          }
+         if (j.req  === 'repoDeleteForReplace'){
+            this.wallet.doRepoDeleteForReplace(j,res);
+            return;
+         }
+
          this.wallet.doMakeReq(j.req,res,j.parms,j.service);
          return;
        } 
@@ -2055,6 +2064,17 @@ class bitMonkyWallet{
        }
        return false;
      }
+   }
+   async doRepoDeleteForReplace(j,res){
+      let doTry = await this.net.UI.deleteFileFromRepoForReplace(j.file);
+      console.log(`doRepoDeleteForReplace():: j,doTry`,j,doTry);
+      res.end(JSON.stringify(doTry));
+      return;
+   }
+   async doRepoFileExists(j,res){
+      const doTry = await this.net.PTree.ftreeFindRepoFile(j.file);
+      res.end(JSON.stringify(doTry));
+      return;
    }
    async doGetFileLineage(j,res){
      console.log(`doGetFileLineage(j)::`,j);

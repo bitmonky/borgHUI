@@ -1047,7 +1047,7 @@ function startIconPhotoUpload(file){
     '&rname=MyFiles' + 
     '&encrypt=0';
   const url  = 'storeRepoFileOnTree.php?' + meta;
-  console.log(`startPhotoUpload():: url`,url);
+  console.log(`startIconPhotoUpload():: url`,url);
 
   var spot   = document.getElementById('uploadSpot');
   var html   = "<div style='padding:.5em;display:inline;height:28px;color:#777777;'>";
@@ -1820,6 +1820,65 @@ function sendRequest(msg,extendedTime=50){
       }
     };
     xml.send(null);
+}
+function sendRequestAsync(msg, extendedTime = 50){
+  return new Promise((resolve) => {
+    msg.PIN = PIN;
+    if (!msg.service){
+      msg.service = service;
+    }
+
+    const body = JSON.stringify(msg);
+    const url  = `http://localhost:${NET_PORT}/netREQ/msg=${body}`;
+    const xml  = new XMLHttpRequest();
+
+    xml.timeout = extendedTime * 1000;
+
+    xml.ontimeout = function(){
+      console.log('sendRequestAsync:: timeout', msg);
+      resolve(null);
+    };
+    xml.onerror = function(){
+      console.log('sendRequestAsync:: error', msg);
+      resolve(null);
+    };
+
+    xml.open("GET", url, true);
+    xml.onreadystatechange = function(){
+      if (xml.readyState !== 4) return;
+      if (xml.status !== 200){
+        console.log('sendRequestAsync:: non-200', xml.status, xml.responseText);
+        return resolve(null);
+      }
+
+      // The two special cases from sendRequest: binary/streaming responses
+      // don't come back as JSON. For an async caller we can't return a raw
+      // buffer through this channel, so we wrap what we got.
+      if (msg.req === 'getFileFromRepo' || msg.req === 'borgUpdateResByUrl'){
+        let r = null;
+        try { r = JSON.parse(xml.responseText); } catch (_) {}
+        return resolve({
+          action   : 'updateResByUrl',
+          res      : msg.res || (msg.parms && msg.parms.res),
+          callback : msg.callbck,
+          meta     : r ? r.res : null,
+          html     : (r && r.html) || xml.responseText,
+          js       : (r && r.js)   || '',
+          jsID     : (r && r.jsID) || '',
+          raw      : true
+        });
+      }
+
+      try {
+        resolve(JSON.parse(xml.responseText));
+      } catch (err) {
+        console.log('sendRequestAsync:: json parse failed', err, xml.responseText);
+        resolve(null);
+      }
+    };
+
+    xml.send(null);
+  });
 }
 /************************************************************
  *  WALLET FILE IMPORT

@@ -123,7 +123,7 @@ function handlerProcessFile(j){
   refreshSideBar();
 }
 
-function startPhotoUpload(){
+async function startPhotoUpload(){
   //scrollToTop();
 
   const file = document.getElementById('getFile');
@@ -131,6 +131,48 @@ function startPhotoUpload(){
     alert("Please choose a file before attempting to upload.");
     return;
   }
+ 
+  const uPhoto = file.files[0];
+  const fdesc = {
+      owner    : borgMUID,
+      rname    : rname,
+      fname    : uPhoto.name,
+      path     : path,        // already the current folder's path
+      folderID : folderID
+    }
+
+  const pre = await sendRequestAsync({
+    req  : 'repoFileExists',
+    file : fdesc
+  }, 15);
+
+  console.log(`startPhotoUpload():: pre-check`,pre);
+  let mode = 'insert';
+  if (pre.error === false && pre?.json?.result === true){
+    const newIsText = isTextMime(uPhoto.type);
+    if (isTextMime(pre.json.ftype) && newIsText){
+      if (!confirm(
+        `Replace v${pre.currentVersion} of "${uPhoto.name}"?\n\n` +
+        `A version record and a searchable diff will be created.`
+      )) return;
+      mode = 'replace-versioned';
+    } else {
+      if (!confirm(
+        `Replace "${uPhoto.name}"?\n\n` +
+        `This file is not versioned; the previous copy will be deleted.`
+      )) return;
+      mode = 'replace-plain';
+    }
+  }
+  if (mode ==='replace-versioned') {
+    doUploadAndVersion(uPhoto,fdesc);
+    return;
+  }
+  if (mode ==='replace-plain') {
+    const doTry = doUploadDeleteForReplace(uPhoto,fdesc);
+    return;
+  }
+
   const meta = 'ownerMUID=' + encodeURIComponent(mbrMUID) +
     '&path=' + encodeURIComponent(path) +
     '&folderID=' + encodeURIComponent(folderID) +
@@ -184,6 +226,27 @@ function startPhotoUpload(){
   xhr.send(formData);
 }
 
+function doUploadAndVersion(photo,fdesc){
+  alert('doUploadAndVersion(photo) - Not Available');
+
+  // 1. Fetch The File From Repo.
+
+  // 2. Create Diff Memory.
+
+  // 3. Remove Old Copy.
+  const pre = await sendRequestAsync({
+    req  : 'repoDeleteForReplace',
+    file : fdesc
+  }, 15);
+}
+async function doDeleteForReplace(photo,fdesc){
+  const pre = await sendRequestAsync({
+    req  : 'repoDeleteForReplace',
+    file : fdesc
+  }, 15);
+  console.log(`startPhotoUpload():: pre-check`,pre);
+  return pre;
+}
 function openFolder(rname, folderID, fname,owner){
   var url = '/whzon/bitMiner/sendBorgFileSys.php?rname=' + encodeURIComponent(rname) +
     '&folderID=' + folderID + '&folder=' + encodeURIComponent(fname) + `&ownerID=${encodeURIComponent(owner)}`;
