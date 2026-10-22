@@ -146,7 +146,7 @@ async function startPhotoUpload(){
     file : fdesc
   }, 15);
 
-  console.log(`startPhotoUpload():: pre-check`,pre);
+  console.log(`startPhotoUpload():: pre-check`,uPhoto,pre);
   let mode = 'insert';
   if (pre.error === false && pre?.json?.result === true){
     const newIsText = isTextMime(uPhoto.type);
@@ -165,8 +165,8 @@ async function startPhotoUpload(){
     }
   }
   if (mode ==='replace-versioned') {
-    doUploadAndVersion(uPhoto,fdesc);
-    return;
+    const tempf = await moveFileToUploads(file);
+    doUploadAndVersion(tempf,fdesc);
   }
   if (mode ==='replace-plain') {
     const doTry = doUploadDeleteForReplace(uPhoto,fdesc);
@@ -177,7 +177,8 @@ async function startPhotoUpload(){
     '&path=' + encodeURIComponent(path) +
     '&folderID=' + encodeURIComponent(folderID) +
     '&rname=' + encodeURIComponent(rname) +
-    '&encrypt=0';
+    '&encrypt=0&mode='+mode;
+    
   const url  = 'storeRepoFileOnTree.php?' + meta;
   var spot   = document.getElementById('uploadSpot');
   var html   = "<div style='padding:.5em;display:inline;height:28px;color:#777777;'>";
@@ -225,26 +226,88 @@ async function startPhotoUpload(){
   };
   xhr.send(formData);
 }
+function moveFileToUploads(file){
+  url = 'storeRepoFileOnTree.php?mode=moveToUploads';
+  return new Promise((resolve) =>{
+    let xhr      = getHttpConnection();
+    let formData = new FormData();
+    let photo    = file.files[0];
+    console.log(photo);
+    formData.append("photo", photo);
 
-function doUploadAndVersion(photo,fdesc){
-  alert('doUploadAndVersion(photo) - Not Available');
+    var spot   = document.getElementById('uploadSpot');
+    var html   = "<div style='padding:.5em;display:inline;height:28px;color:#777777;'>";
+    html += "<div class='mkyloader'></div>Uploading File For Storage On The PeerTree...</div>";
+    spot.innerHTML = html;
 
+    xhr.upload.addEventListener('progress', function(e){
+      var file1Size = photo.size;
+      if (e.loaded <= file1Size){
+        var percent = Math.round(e.loaded / file1Size * 100);
+        spot.innerHTML = 'Uploading... ' + percent + '%';
+      }
+      if (e.loaded == e.total){
+        spot.innerHTML = html;
+      }
+    });
+
+    xhr.timeout = 24 * 60 * 60;
+    xhr.open("POST", url);
+    xhr.onreadystatechange = function(){
+      if (xhr.readyState == 4){
+        console.log(xhr.status);
+        if (xhr.status == 200){
+          var j = xhr.responseText;
+          console.log(j);
+          try {
+            j = JSON.parse(j);
+            resolve(j);
+          } catch(err){
+            console.log(err);
+            resolve(null);
+          }
+        }
+      }
+    };
+    xhr.send(formData);
+  });
+}
+async function doUploadDeleteForReplace(uPhoto,fdesc){
+  console.log(`doUploadDeleteForReplace():: uPhoto,fdesc `,uPhoto,fdesc);
+  console.log(`doUploadDeleteForReplace():: not implemented`,uPhoto,fdesc);
+  return;
+}
+async function doUploadAndVersion(tempf,fdesc){
+  console.log(`doUploadAndVersion()::`,tempf,fdesc);
   // 1. Fetch The File From Repo.
+  let pre = await sendRequestAsync({
+    req  : 'repoFetchFileForReplace',
+    file : fdesc
+  }, 15);
+  console.log(`doUploadAndVersion`,pre);
 
   // 2. Create Diff Memory.
+  pre = await sendRequestAsync({
+    req     : 'updateFileVersion',
+    newfile : tempf,
+    oldFile : fdesc,
+    data    : pre
+  }, 15);
+  console.log(`doUploadAndVersion():: `,pre);
 
   // 3. Remove Old Copy.
-  const pre = await sendRequestAsync({
+  pre = await sendRequestAsync({
     req  : 'repoDeleteForReplace',
     file : fdesc
   }, 15);
+  return pre;
 }
 async function doDeleteForReplace(photo,fdesc){
   const pre = await sendRequestAsync({
     req  : 'repoDeleteForReplace',
     file : fdesc
   }, 15);
-  console.log(`startPhotoUpload():: pre-check`,pre);
+  console.log(`doDeleteForReplace():: pre-check`,pre);
   return pre;
 }
 function openFolder(rname, folderID, fname,owner){

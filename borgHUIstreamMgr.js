@@ -1344,8 +1344,10 @@ class BorgHUIstreamMgr {
       headers["Content-Disposition"] = `inline; filename="${stream.origName}"`;
 
       // Send headers
-      httpRes.writeHead(200, headers);
-      httpRes.end(reply);
+      if (httpRes){
+        httpRes.writeHead(200, headers);
+        httpRes.end(reply);
+      }
       return true;
     }
 

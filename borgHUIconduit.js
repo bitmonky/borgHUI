@@ -527,7 +527,8 @@ class bitMonkyWSrv extends  EventEmitter {
            path      : urlObj.searchParams.get('path'),
            folderID  : urlObj.searchParams.get('folderID'),
            rname     : urlObj.searchParams.get('rname'),
-           encrypt   : urlObj.searchParams.get('encrypt') 
+           encrypt   : urlObj.searchParams.get('encrypt'), 
+           mode      : urlObj.searchParams.get('mode')
          } 
          if (meta.ownerMUID === 'localMUID')  meta.ownerMUID = this.wallet.ownMUID;
          console.log(`upload meta data`,meta);
@@ -568,7 +569,13 @@ class bitMonkyWSrv extends  EventEmitter {
                  if (err) {
                    res.writeHead(500, { 'Content-Type': 'application/json' });
                    res.end(JSON.stringify({ result: false, data: 'File Move Failed' }));
-                 } else {
+                 } 
+                 else {
+                   if (meta.mode === 'moveToUploads') {
+                     res.writeHead(200, { 'Content-Type': 'application/json' });
+                     res.end(JSON.stringify({ result: true, file: targetFile,fhash: hash}));
+                     return;
+                   }
                    const j = {
                      req: 'uploadUserFile',
                      fileName : originalname,
@@ -961,6 +968,10 @@ class bitMonkyWSrv extends  EventEmitter {
            await this.wallet.doGetFileLineage(j,res);
            return;
          }
+         if (j.req === 'updateFileVersion'){
+           await this.doUpdateFileVersion(j,res);
+           return;
+         }
          if (j.req === 'restoreFileVersion'){
            await this.wallet.doRestoreFileVersion(j,res);
            return;
@@ -973,7 +984,10 @@ class bitMonkyWSrv extends  EventEmitter {
             this.wallet.doRepoDeleteForReplace(j,res);
             return;
          }
-
+         if (j.req  === 'repoFetchFileForReplace'){
+            this.wallet.doRepoFetchFileForReplace(j,res);
+            return;
+         }
          this.wallet.doMakeReq(j.req,res,j.parms,j.service);
          return;
        } 
@@ -1118,7 +1132,9 @@ class bitMonkyWSrv extends  EventEmitter {
   }
 }
 async doUpdateFileVersion(m,res){
-
+  console.log(`doUpdateFileVersion`,m);
+  res.end(JSON.stringify({result   : false, msg:`doUpdateFileVersion:conduit not finish`}));
+  return;
 
   // m.url query carries: rname, fname, path, folderID, oldFuid, newFuid,
   // oldCheckSum, newCheckSum, newFilePath, newMime, newSize
@@ -1196,6 +1212,7 @@ async doUpdateFileVersion(m,res){
     authorMUID : this.ownMUID,
     timestamp  : Date.now()
   };
+  console.log(``,memBody);
   const memStr  = JSON.stringify(memBody);
   const memHash = this.calculateHash(memStr);
 
@@ -1406,13 +1423,13 @@ async doGetFileById(file,res){
   const fileId = u.searchParams.get('fileId');
   const mode   = u.searchParams.get('fmode');
 
-  console.log('getFileFromRepo():: fileId ',  fileId);
-  console.log('getFileFromRepo():: mode ',  mode);
+  console.log('getFileFromRepoById():: fileId ',  fileId);
+  console.log('getFileFromRepoById():: mode ',  mode);
 
   let doTry = await this.PTree.ftreeGetFileFromRepoById(this.wallet.ownMUID,fileId);
   console.log(`doTry`,doTry);
   if (doTry.status === 200){
-    console.log(`getFileFromRepo():: doTry is `,doTry.json);
+    console.log(`getFileFromRepoById():: doTry is `,doTry.json);
   }
   if (doTry?.json?.result === false){
     console.log(`doTry error: `,doTry.error);
@@ -1499,153 +1516,6 @@ async getFileFromRepo(req, msg, res) {
   }
 
   return;
-
-  try {
-      const wp = await this.portal.selectPortal('borgApacheCell');
-
-      const service = {
-        endPoint: msg.url,
-        host: wp.host,
-        port: wp.port,
-        raw: true
-      };
-
-      console.log('getFileFromRepo():: ', service, msg);
-
-    // -----------------------------------
-    // MIME TYPE DETECTION
-    //-------------------------------------
-    let mimeType = msg.mime;
-
-    var fileName = null;
-    if (!mimeType) {
-      const parsed = url.parse(msg.url, true);
-      fileName = parsed.query.fname;
-      mimeType = mime.lookup(fileName) || "application/octet-stream";
-    }
-    console.log(`getFileFromRepo():: mimeType is;`,mimeType);
-    // Do Checksum Check To See If File has changed
-    // -----------------------------------
-    // CHECKSUM LOOKUP
-    // -----------------------------------
-    const clientETag = req.headers['if-none-match'];
-    const cleanETag = clientETag ? clientETag.replace(/"/g, "") : null;
-
-
-    let remCheckSumOK = await this.doCheckSumLookup(msg,service,cleanETag);
-
-    // Hard failure: network error, invalid JSON, PHP crash
-    if (!remCheckSumOK) {
-      console.log(`getFileFromRepo():: remCheckSumLookup failed`, remCheckSumOK);
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      return res.end(`Checksum Lookup Failed\n`);
-    }
-
-    // Soft failure: checksum mismatch (file changed)
-    if (remCheckSumOK.result === false) {
-      console.log(`getFileFromRepo():: checksum mismatch, fetching new file`, remCheckSumOK);
-      // DO NOT RETURN — continue to fetch file
-    }
-    
-    // -----------------------------------
-    // BROWSER CACHE VALIDATION (ETag)
-    //-------------------------------------
-
-    if (cleanETag  && cleanETag === remCheckSumOK.checkSum) {
-      // Browser already has this exact version
-      res.writeHead(304);
-      return res.end();
-    }
-
-    // Cache Not Useable Fetch file bytes from repo
-    const result = await this.wallet.sendPostRequest(msg, null, service);
-   
-    if (result === null) {
-      console.log(`getFileFromRepo():: failed `);
-      if (isImageMime(mimeType)){
-        res.writeHead(500, { "Content-Type": mimeType });
-        res.end('');
-        return;
-      }
-      res.writeHead(200, { "Content-Type": "text/plain" });
-      return res.end("Get File Failed... No File Found At url.\n");
-    }
-    // Try to parse JSON only if result is text-like
-    let j = null;
-    try {
-      const text = Buffer.isBuffer(result) ? result.toString() : result;
-      j = JSON.parse(text);
-    } 
-    catch (e) {
-      // Not JSON — expected for binary files
-    }
-
-    if (j && j.result === false) {
-      console.log(`getFileFromRepo():: failed on: `, j);
-
-      if (isImageMime(mimeType)) {
-        res.writeHead(500, { "Content-Type": mimeType });
-        res.end('');
-        return;
-      }
-
-      res.writeHead(500, { "Content-Type": "text/plain" });
-      return res.end(`Get File Failed... details: ${JSON.stringify(j)}\n`);
-    }
-    
-    console.log("CLIENT FIRST 20 BYTES:", new Uint8Array(result).slice(0, 20));
-    console.log("CLIENT LAST 20 BYTES:", new Uint8Array(result).slice(-20));
-    console.log("getFileFromRepo():: First 20 bytes:", result.slice(0, 20));
-    console.log("LAST 20 BYTES:", result.slice(result.length - 20));
-
-
-    // -----------------------------------
-    // FILE INFO
-    //-------------------------------------
-    const fcheckSum = msg.checkSum || msg.fcheckSum || null;
-    const fname     = fileName || null;
-    const fileSize  = Buffer.isBuffer(result)
-      ? result.length
-      : Buffer.byteLength(result);
-
-    console.log(`getFileFromRepo():: FILE INFO:`,fcheckSum,fname,fileSize);
-    // -----------------------------------
-    // BUILD RESPONSE HEADERS
-    //-------------------------------------
-    const headers = {
-      "Content-Type": mimeType,
-      "Content-Length": fileSize,
-      "Accept-Ranges": "bytes"
-    };
-
-    if (fcheckSum) {
-      headers["ETag"] = `"${fcheckSum}"`;
-    }
-
-    if (fname) {
-      headers["Content-Disposition"] = `inline; filename="${fname}"`;
-    }
-    
-    //console.log(`getFileFromRepo():: Headers:`,headers);
-
-    // -----------------------------------
-    // SEND FILE
-    //-------------------------------------
-    res.writeHead(200, headers);
-
-    if (Buffer.isBuffer(result)) {
-      console.log(`getFileFromRepo():: response is buffer:`);
-      res.end(result);
-    } else {
-      console.log(`getFileFromRepo():: response is NOT buffer: converting`);
-      res.end(Buffer.from(result));
-    }
-
-  } catch (err) {
-    console.log("getFileFromRepo error:", err);
-    res.writeHead(500, { "Content-Type": "text/plain" });
-    res.end("Internal Error Loading Borg Browser");
-  }
 }
   async startBorgBrowser(res, msg) {
     try {
@@ -2064,6 +1934,12 @@ class bitMonkyWallet{
        }
        return false;
      }
+   }
+   async doRepoFetchFileForReplace(j,res){
+      let doTry = await this.net.UI.fetchFileFromRepoForReplace(j.file,null);
+      console.log(`doRepoFetchFileForReplace():: j,doTry`,j,doTry);
+      res.end(JSON.stringify(doTry));
+      return;
    }
    async doRepoDeleteForReplace(j,res){
       let doTry = await this.net.UI.deleteFileFromRepoForReplace(j.file);

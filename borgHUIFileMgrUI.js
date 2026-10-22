@@ -2,6 +2,7 @@
 // BorgIOS Unified Server‑Side HTML Builder
 // Produces one giant HTML string to send to the browser
 //
+const fs = require('fs');
 
 class BorgHUIFileMgrUI {
   constructor(net){
@@ -109,6 +110,62 @@ async createRepoFolderGET(queryString) {
   //
   return {result:'OK',newRepo,name,folder,parent};
 }
+async fetchFileFromRepoForReplace(params,res=null,req=null){
+  console.log(`fetchFileFromRepoForReplace():: params`,params);
+  
+  // Query fields
+  const fname     = params.fname;
+  const rname     = params.rname;
+  const repoPath  = params.path;
+  const ownerMUID = params.owner;
+  const folderID  = params.folderID;
+ 
+  if (res) res.req = req;
+  const stream = await this.net.DStream.keepStreaming(params.checkSum,res,fname,params.ftype);
+  console.log(`fetchFileFromRepoForReplace():: stream`,stream);
+  if (stream) return;
+
+  let doTry = await this.net.PTree.ftreeGetFileFromRepo(ownerMUID, rname, fname, repoPath, folderID);
+  console.log(`doTry`,doTry);
+
+  if (doTry?.json?.result === false){
+    console.log(`doTry error: `,doTry.error);
+    return {result: false,msg :`Get File Failed... details: `, doTry: doTry};
+  }  
+  // Check cache for tempfile.  
+  const tempfile = `./downloads/${doTry.json.file.fileInfo.checkSum}.tmp`;
+  let tempfileExists = false;  
+  let tempfileStats = null;
+
+  try {
+    tempfileStats = fs.statSync(tempfile);
+    tempfileExists = tempfileStats.isFile();
+  } catch (err) {
+    console.error(`Error checking tempfile: ${err.message}`);
+  }
+
+  if (tempfileExists) {
+    return {result: true,msg: 'file found', fileloc: tempfile};
+  }
+
+  if (doTry?.json?.file.fileInfo.fileSize > 0) {
+    const p = await this.net.portal.selectPortal('shardTreeCell');
+
+    const service = {
+      endPoint : '/netREQ/',
+      filename : tempfile,
+      host     : p.host,
+      port     : p.port,
+      raw      : true
+    };
+    if (res) res.req = req;
+    doTry = await this.net.DStream.streamRepoFileFrom(service,doTry.json,res);
+    console.log('fetchFileFromRepoForReplace().streamRepoFileFrom():: doTry ',doTry);
+    return {result:true,msg:"file ready",tempfile};
+  }
+  console.log('fetchFileFromRepoForReplace().streamRepoFileFrom():: failed doTry ',doTry);
+  return {result:false,msg:"fetchFileFromRepoForReplace():: Not Implemented"};
+}
 async deleteFileFromRepoForReplace(params) {
   const mbrMUID  = params.ownerMUID || this.net.wallet.ownMUID;
   const rname    = params.rname     || "";
@@ -118,7 +175,7 @@ async deleteFileFromRepoForReplace(params) {
 
   const fd = await this.net.PTree.ftreeGetFileFromRepo(mbrMUID, rname, fname, path, folderID);
   if (!fd) {
-    return "Node::ftreeGetFileFromRepo: Failed";
+    return {result:false,msg:"Node::ftreeGetFileFromRepo: Failed"};
   }
 
   if (fd.error || fd.json.result === false) {
