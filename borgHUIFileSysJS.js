@@ -125,11 +125,13 @@ function handlerProcessFile(j){
 
 async function startPhotoUpload(){
   //scrollToTop();
+  let result = null;
+  console.log(`startPhotoUpload()::!!!`);
 
   const file = document.getElementById('getFile');
   if (!file.files || file.files.length === 0){
     alert("Please choose a file before attempting to upload.");
-    return;
+    return result;
   }
  
   const uPhoto = file.files[0];
@@ -145,32 +147,39 @@ async function startPhotoUpload(){
     req  : 'repoFileExists',
     file : fdesc
   }, 15);
-
   console.log(`startPhotoUpload():: pre-check`,uPhoto,pre);
   let mode = 'insert';
   if (pre.error === false && pre?.json?.result === true){
+    const trec = pre.json.trec;
+    fdesc.trec = trec;
     const newIsText = isTextMime(uPhoto.type);
-    if (isTextMime(pre.json.ftype) && newIsText){
+    if (isTextMime(trec.smgrFileType) && newIsText){
       if (!confirm(
-        `Replace v${pre.currentVersion} of "${uPhoto.name}"?\n\n` +
+        `Replace v${trec.smgrFVersionNbr} of "${uPhoto.name}"?\n\n` +
         `A version record and a searchable diff will be created.`
-      )) return;
+      )) return result;
       mode = 'replace-versioned';
     } else {
       if (!confirm(
         `Replace "${uPhoto.name}"?\n\n` +
         `This file is not versioned; the previous copy will be deleted.`
-      )) return;
+      )) return  result;
       mode = 'replace-plain';
     }
   }
   if (mode ==='replace-versioned') {
     const tempf = await moveFileToUploads(file);
+    console.log(`startPhotoUpload():: pre-check tempf`,tempf);
+    if(pre.json.trec.smgrCheckSum === tempf?.fhash){
+      alert('No Changes Detected... Aborting Version Update');
+      changeRepo(rname,mbrMUID);
+      return 0;
+    } 
     doUploadAndVersion(tempf,fdesc);
   }
   if (mode ==='replace-plain') {
     const doTry = doUploadDeleteForReplace(uPhoto,fdesc);
-    return;
+    return 1;
   }
 
   const meta = 'ownerMUID=' + encodeURIComponent(mbrMUID) +
@@ -225,6 +234,7 @@ async function startPhotoUpload(){
     }
   };
   xhr.send(formData);
+  return 1;
 }
 function moveFileToUploads(file){
   url = 'storeRepoFileOnTree.php?mode=moveToUploads';

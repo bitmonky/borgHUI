@@ -573,7 +573,7 @@ class bitMonkyWSrv extends  EventEmitter {
                  else {
                    if (meta.mode === 'moveToUploads') {
                      res.writeHead(200, { 'Content-Type': 'application/json' });
-                     res.end(JSON.stringify({ result: true, file: targetFile,fhash: hash}));
+                     res.end(JSON.stringify({ result: true, file: targetFile,fhash: hash,fsize: size}));
                      return;
                    }
                    const j = {
@@ -798,7 +798,7 @@ class bitMonkyWSrv extends  EventEmitter {
           
      try {
        j = JSON.parse(msg);
-       console.log(`handleRequest():: values:`,j);
+       //console.log(`handleRequest():: values:`,j);
 
        if (j.req){
          if (j.req == 'useNewWallet'){
@@ -1132,44 +1132,47 @@ class bitMonkyWSrv extends  EventEmitter {
   }
 }
 async doUpdateFileVersion(m,res){
-  console.log(`doUpdateFileVersion`,m);
+  console.log(`doUpdateFileVersion():: MMMM`,m);
   res.end(JSON.stringify({result   : false, msg:`doUpdateFileVersion:conduit not finish`}));
-  return;
+  //return;
 
-  // m.url query carries: rname, fname, path, folderID, oldFuid, newFuid,
-  // oldCheckSum, newCheckSum, newFilePath, newMime, newSize
-  const u = new URL(m.url, 'http://localhost');
-  const q = (k) => u.searchParams.get(k);
-  const rname     = q('rname');
-  const fname     = q('fname');
-  const path      = q('path') || '/';
-  const folderID  = q('folderID') ? Number(q('folderID')) : 0;
-  const oldFuid   = q('oldFuid');
-  const newFuid   = q('newFuid');
-  const oldCheck  = q('oldCheckSum');
-  const newCheck  = q('newCheckSum');
-  const newPath   = q('newFilePath');
-  const newMime   = q('newMime') || 'application/octet-stream';
+  const rname     = m.oldFile.rname;
+  const fname     = m.oldFile.fname;
+  const path      = m.oldFile.path || '/';
+  const folderID  = m.oldFile.folderID ? Number(m.oldFile.folderID) : 0;
+  const oldFuid   = m.oldFile.trec.smgrFileShaFUID;
+  const newFuid   = oldFuid;
+  const oldCheck  = m.oldFile.trec.smgrCheckSum;
+  const newCheck  = m.newfile.fhash;
+  const newPath   = m.newfile.file;
+  const newMime   = m.oldFile.trec.smgrFileType || 'application/octet-stream';
 
   // Text files get a version row + a diff memory. Everything else is a
   // plain replace: upload already happened, delete the old head, done.
   if (!borgDiff.isTextMime(newMime)){
+    console.log(`doUpdateFileVersion():: newMime`,newMime);
     return this.doReplaceBinary(m, res);
   }
-  const newSize   = q('newSize') ? Number(q('newSize')) : 0;
+  const newSize   = m.newfile.fsize ? Number(m.newfile.fsize) : 0;
+  console.log(`doUpdateFileVersion():: newSize`,newSize);
 
   if (!oldFuid || !newFuid || !newPath){
+    console.log(`doUpdateFileVersion():: missing params`,oldFuid,newFuid, newPath);
     res.end(JSON.stringify({result:false,action:m.req,msg:'missing params'}));
     return;
   }
 
   // 1. Lineage ID, deterministic across uploads.
-  const lineageID = this.computeLineageID(rname, path, folderID, fname);
+  const lineageID = m.oldFile.trec.smgrLineageID;
+  if(!lineageID) lineageID = this.computeLineageID(rname, path, folderID, fname);
+
+  console.log(`doUpdateFileVersion():: lineageID`,lineageID);
 
   // 2. Fetch the old head bytes. Reuse the conduit's existing fetch path,
   //    writing into downloads/<oldCheck>.tmp.
   const oldTmpPath = `downloads/${oldCheck}.tmp`;
   const fetchedOld = await this.ensureLocalCopy(oldCheck, oldTmpPath);
+  console.log(`doUpdateFileVersion():: fetchedOld`,fetchedOld);
   if (!fetchedOld){
     res.end(JSON.stringify({result:false,action:m.req,msg:'old version fetch failed'}));
     return;
@@ -1185,8 +1188,11 @@ async doUpdateFileVersion(m,res){
     return;
   }
 
+  console.log(`doUpdateFileVersion():: diffBody`,diffBody);
   // 4. Determine the next version number from the current lineage head.
-  const lin = await this.net.PTree.ftreeGetFileLineage(lineageID);
+  const lin = await this.PTree.ftreeGetFileLineage(lineageID);
+  console.log(`doUpdateFileVersion():: lin`,lin);
+
   const prior = (lin?.json?.versions && lin.json.versions[0]) || null;
   const nextVersion = prior ? prior.fverVersion + 1 : 1;
   const parentFUID  = prior ? prior.fverFUID : null;
@@ -1202,19 +1208,19 @@ async doUpdateFileVersion(m,res){
     filePath   : path,
     folderID,
     fileType   : newMime,
-    repoOwner  : this.ownMUID,
+    repoOwner  : m.oldFile.owner,
     repoName   : rname,
     oldCheckSum: oldCheck,
     newCheckSum: newCheck,
     oldSize    : diffBody.oldSize,
     newSize    : diffBody.newSize,
     diff       : diffBody,
-    authorMUID : this.ownMUID,
+    authorMUID : this.wallet.ownMUID,
     timestamp  : Date.now()
   };
-  console.log(``,memBody);
+  console.log(`doUpdateFileVersion():: memBody`,memBody);
   const memStr  = JSON.stringify(memBody);
-  const memHash = this.calculateHash(memStr);
+  const memHash = this.wallet.calculateHash(memStr);
 
   const diffMemID = await this.storeDiffMemory(memBody, memStr, memHash);
   if (!diffMemID){
@@ -1245,10 +1251,10 @@ async doUpdateFileVersion(m,res){
     fname, path, String(folderID ?? ''), String(newSize), newMime
   ].join('|');
   const sig = {
-    ownMUID  : this.ownMUID,
+    ownMUID  : this.wallet.ownMUID,
     token,
-    pubKey   : this.publicKey,
-    signature: this.signMsg(token)
+    pubKey   : this.wallet.publicKey,
+    signature: this.wallet.signMsg(token)
   };
 
   const versionPayload = {
@@ -1266,9 +1272,12 @@ async doUpdateFileVersion(m,res){
     diffMemID,
     sig
   };
+  
+  console.log(`doUpdateFileVersion():: versionPayload`,versionPayload);
+  console.log(`doUpdateFileVersion():: { from: this.ownMUID, name: rname }`,{ from: this.wallet.ownMUID, name: rname });  
 
-  const ins = await this.net.PTree.ftreeInsertFileVersion(
-    { from: this.ownMUID, name: rname },
+  const ins = await this.PTree.ftreeInsertFileVersion(
+    { from: this.wallet.ownMUID, name: rname },
     versionPayload
   );
   console.log(`doUpdateFileVersion():: insertFileVersion`,ins);
@@ -1294,14 +1303,14 @@ async doUpdateFileVersion(m,res){
 
   let retired = null;
   try {
-    retired = await this.net.UI.deleteFileFromRepoGET(delUrl.replace('/whzon/bitMiner/borgDelFileFromRepo.php',''));
+    retired = await this.UI.deleteFileFromRepoGET(delUrl.replace('/whzon/bitMiner/borgDelFileFromRepo.php',''));
   } catch(err){
     console.log('doUpdateFileVersion():: retire old head failed',err);
   }
 
   // 8. Idempotent set of diffMemID on the row (in case step 6 wrote without it).
   try {
-    await this.net.PTree.ftreeSetFileVersionDiffMem(lineageID, nextVersion, diffMemID);
+    await this.PTree.ftreeSetFileVersionDiffMem(lineageID, nextVersion, diffMemID);
   } catch(_) {}
 
   res.end(JSON.stringify({
@@ -1334,7 +1343,7 @@ async doReplaceBinary(m, res){
 
   let retired = null;
   try {
-    retired = await this.net.UI.deleteFileFromRepoGET(
+    retired = await this.UI.deleteFileFromRepoGET(
       delUrl.replace('/whzon/bitMiner/borgDelFileFromRepo.php','')
     );
   } catch(err){
@@ -1352,18 +1361,18 @@ computeLineageID(rname, path, folderID, fname){
   const normPath = (path === '/' || !path) ? '/' : path.replace(/^\//,'');
   const fid      = (folderID === null || folderID === undefined) ? '0' : String(folderID);
   const token    = `${this.ownMUID}|${rname}|${normPath}|${fid}|${fname}`;
-  return this.calculateHash(token).slice(0, 24);   // matches hashToBase58 length
+  return this.wallet.calculateHash(token).slice(0, 24);   // matches hashToBase58 length
 }
 
 async ensureLocalCopy(checkSum, targetPath){
   try {
     const fs = require('fs');
     if (fs.existsSync(targetPath) && fs.statSync(targetPath).size > 0){
-      const h = await this.net.DStream.getHash(targetPath);
+      const h = await this.DStream.getHash(targetPath);
       if (h === checkSum) return targetPath;
       fs.unlinkSync(targetPath);
     }
-    const p = await this.net.portal.selectPortal('shardTreeCell');
+    const p = await this.portal.selectPortal('shardTreeCell');
     const service = {
       endPoint : '/netREQ/',
       filename : targetPath,
@@ -1372,12 +1381,12 @@ async ensureLocalCopy(checkSum, targetPath){
       raw      : true
     };
     // The conduit already has an id-keyed fetch on the tree; use it here.
-    const doTry = await this.net.PTree.ftreeGetFileFromRepoById(this.ownMUID, checkSum);
+    const doTry = await this.PTree.ftreeGetFileFromRepoById(this.ownMUID, checkSum);
     if (!doTry?.json?.file?.fileInfo?.fileSize) return null;
-    await this.net.DStream.streamRepoFileFrom(service, doTry.json, null, targetPath);
+    await this.DStream.streamRepoFileFrom(service, doTry.json, null, targetPath);
     // streamRepoFileFrom resolves when the temp file is complete;
     // verify hash.
-    const h2 = await this.net.DStream.getHash(targetPath);
+    const h2 = await this.DStream.getHash(targetPath);
     return h2 === checkSum ? targetPath : null;
   } catch(err){
     console.log('ensureLocalCopy():: ',err);
@@ -1390,7 +1399,7 @@ async storeDiffMemory(memBody, memStr, memHash){
     // Text diffs get the LLM keyword treatment; binaries use a hand-built set.
     let weights;
     if (memBody.diff.kind === 'text-unified'){
-      const r = await this.net.MStream.doStoreMemory({
+      const r = await this.MStream.doStoreMemory({
         ...memBody,
         memID: memHash,
         memType: 'BorgFileDiff'
@@ -1407,7 +1416,7 @@ async storeDiffMemory(memBody, memStr, memHash){
         ? [memBody.fileName, `v${memBody.version}`]
         : []).keyWords;
 
-    const j = await this.net.PTree.ptreeStoreMem(
+    const j = await this.PTree.ptreeStoreMem(
       this.ownMUID, memHash, memStr, 'BorgFileDiff', 3, weights
     );
     if (j?.json?.result === 'memOK' || j?.json?.result === true) return memHash;
@@ -1949,6 +1958,7 @@ class bitMonkyWallet{
    }
    async doRepoFileExists(j,res){
       const doTry = await this.net.PTree.ftreeFindRepoFile(j.file);
+      console.log(`doRepoFileExists():: doTry`,doTry);
       res.end(JSON.stringify(doTry));
       return;
    }

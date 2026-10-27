@@ -345,7 +345,7 @@ class BorgHUIstreamMgr {
       // SUCCESS PATH
       this.net.on('xhrPostOK', sendOKListener = async (j) => {
         if (j.reqId === reqId) {
-          console.log(`streamTo():: heard from  `,j.toHost);
+          //console.log(`streamTo():: heard from  `,j.toHost);
           nResponses++;
           if (j.res.result === 'STREAM_META_ACK'){
             fullStream.blastPorts.set(j.toHost,{ip:j.toHost,bannedUntil:0});
@@ -368,7 +368,7 @@ class BorgHUIstreamMgr {
               return;
             }
           } 
-          console.log(`BlastPorts Are`,fullStream.blastPorts);
+          //console.log(`BlastPorts Are`,fullStream.blastPorts);
         }
       });
 
@@ -391,7 +391,7 @@ class BorgHUIstreamMgr {
 
       portals.forEach((portal) => {
         service.host = portal.ip;
-        console.log(`streamTo():: sending msg`,service,msg);
+        //console.log(`streamTo():: sending msg`,service,msg);
         this.sendMsgCX(JSON.parse(JSON.stringify(service)), JSON.parse(JSON.stringify(msg)));
       });
 
@@ -413,7 +413,7 @@ class BorgHUIstreamMgr {
     if (stream.completed) return;
 
     // Fill the window
-    console.log(`doBlastShardBatch():: pending ${stream.pendingShards.size} inFlight: ${stream.inFlight.size}`);
+    //console.log(`doBlastShardBatch():: pending ${stream.pendingShards.size} inFlight: ${stream.inFlight.size}`);
     while (
       stream.inFlight.size < stream.winSize &&
       stream.pendingShards.size > 0
@@ -438,8 +438,8 @@ class BorgHUIstreamMgr {
         // Mark as in-flight
         stream.inFlight.add(shardIdx);   
         console.log(`hashing:: ${shardId}-${this.net.wallet.ownMUID}-${Date.now()}`);
-        console.log(`doBlastShardBatch():: shard.hashID `,`${shard.hashHID}:${shardHID}`);
-        console.log(`doBlastShardBatch():: service is `,service);
+        //console.log(`doBlastShardBatch():: shard.hashID `,`${shard.hashHID}:${shardHID}`);
+        //console.log(`doBlastShardBatch():: service is `,service);
 
         const portal = this.getNextBlastPort(stream);
         if (portal) {
@@ -447,7 +447,7 @@ class BorgHUIstreamMgr {
         }
 
         // Dispatch the shard
-        console.log(`doBlastShardBatch():: `,service, stream.streamId, shardIdx, shardId,shardHID,shardSig);
+        //console.log(`doBlastShardBatch():: `,service, stream.streamId, shardIdx, shardId,shardHID,shardSig);
         this.sendStreamShard(service, stream.streamId, shardIdx, shardId,shardHID,shardSig);
 
         // Optional: status update
@@ -511,7 +511,7 @@ class BorgHUIstreamMgr {
      
     // Then send raw binary shard
     service.endPoint = '/storeShard/'
-    console.log(`sendStreamShard()::`,msg);
+    //console.log(`sendStreamShard()::`,msg);
     this.sendBinaryShardCX(service, msg);
     this.setStatus(streamId,'transfering:'+shardId);
   }
@@ -1200,7 +1200,7 @@ class BorgHUIstreamMgr {
       console.warn(`ACK for shard ${index} of ${streamId} not in flight`);
       return;
      }
-     console.log(`onShardSentACK():: shard: ${shard.hash} result ${shard.res.result} n ${shard.res.nStored} stored;`);
+     //console.log(`onShardSentACK():: shard: ${shard.hash} result ${shard.res.result} n ${shard.res.nStored} stored;`);
      this.net.pushEvent('borg-event',{req:"updateUpload",text:`Shard ${index} of ${stream.shardHashes.length} - ${shard.res.nStored} Saved To PeerTreeCell`});
 
      // 1. Remove from inFlight
@@ -1215,7 +1215,7 @@ class BorgHUIstreamMgr {
        stream.inFlight.size === 0 &&
        stream.pendingShards.size === 0
      ) {
-       console.log(`onShardSentACK():: closeOutgoingStream: elasped Time`,Date.now() - stream.sentAt);
+       //console.log(`onShardSentACK():: closeOutgoingStream: elasped Time`,Date.now() - stream.sentAt);
        const yellow = s => `\x1b[33m${s}\x1b[0m`;
        const green  = s => `\x1b[32m${s}\x1b[0m`;
 
@@ -1753,7 +1753,7 @@ class BorgHUIstreamMgr {
     });
 
     const endPoint = `${service.endPoint}?${params.toString()}`;
-    console.log(`sendBinaryShardCX`,endPoint);
+    //console.log(`sendBinaryShardCX`,endPoint);
     const options = {
        hostname : service.host,
        port     : service.port,

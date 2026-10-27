@@ -339,10 +339,13 @@ function doUpdateMemQry(msg){
     }
     
     // Add the text content
+    console.log(`doUpdateMemQry():: memoryData `,memoryData);
+    if (!memoryData.title) memoryData.title = `${memoryData.memType} ${memoryData.fileName} version - ${memoryData.version}`;
+    if (!memoryData.description) memoryData.description = memoryData.diff.diff.slice(0,500);
     listingHTML += `
       <div style="margin-left: ${memoryData.ftype && memoryData.ftype.startsWith('image/') ? '7em' : '0'};">
         <div style="font-weight: bold; font-size: 1.1em;">
-          ${memoryData.title || 'Untitled'}
+          ${memoryData.title} 
         </div>
         ${memoryData.description ? `<div style="color: #ddd; margin: 0.3em 0;">${memoryData.description}</div>` : ''}
         <div style="font-size: 0.85em; color: #999;">
@@ -405,6 +408,8 @@ function doUpdateFullMemory(msg){
       onclick="deleteMemoryFile('${msg.ownMUID}','${msg.hash}');">
      </div>`;
   }
+  if (!memoryData.title) memoryData.title = `${memoryData.memType} ${memoryData.fileName} version - ${memoryData.version}`;
+  if (!memoryData.description) memoryData.description = memoryData.diff.diff.slice(0,500);
   const htm = `<div class="infoCardClear" style="width:100%";>
         ${action}
         <div style="font-weight: bold; font-size: 1.8em;">
