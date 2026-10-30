@@ -545,10 +545,12 @@ var cSpotIDtx = null;
 
 var videoObj = null;
 
-function doGetFileFromRepo(rname, fName, path, folderID, ftype=null, encrypt=0, chkSum,fuid){
-  window.__currentFile = { fuid, lineageID: chkSum ? null : null, name: fName,ftype, rname, path, folderID };
+function doGetFileFromRepo(rname, fName, path, folderID, ftype=null, encrypt=0, chkSum,fuid,lineageID){
+  if (!lineageID) lineageID = null;
+  window.__currentFile = { fuid, lineageID: lineageID, name: fName,ftype, rname, path, folderID };
   // lineageID is fetched lazily by the history button if missing; see below
-
+  console.log(`doGetFileFromRepo():: window.__currentFile`,window.__currentFile);
+  
   hide('avitarButton');
   hide('photoIMG');
   hide('videoSpot');
@@ -812,6 +814,7 @@ function showFileHistory(){
     return;
   }
   const f = window.__currentFile;
+  console.log(`showFileHistory():: window.__currentFile`,window.__currentFile);
   sendRequest({
     req: "getFileLineage",
     parms: { lineageID: f.lineageID || null, fuid: f.fuid || null }
@@ -833,10 +836,10 @@ function doShowFileLineage(j){
         <td>${v.fverFileSize}</td>
         <td><code>${(v.fverCheckSum||'').slice(0,12)}</code></td>
         <td>
-          <input type='button' value=' Show Diff ' onclick='showDiffMem("${v.fverDiffMemID||''}")'/>
-          <input type='button' value=' Restore ' onclick='restoreFileVersion("${v.fverFUID}", ${v.fverVersion})'/>
+        <input type='button' value=' Show Diff ' onclick='showDiffMem("${v.fverDiffMemID ||''}")'/>
+        <input type='button' value=' Restore ' onclick='restoreFileVersion("${v.fverFUID}", ${v.fverVersion})'/>
         </td>
-      </tr>`;
+        </tr><tr><td colspan="5"><div class="infoCardClear" style="display:none;width:100%" id="mem-${v.fverDiffMemID}"></div></td></tr>`;
     }
     html += `</table>`;
   }
@@ -858,7 +861,7 @@ function isTextMime(mime){
 }
 function showDiffMem(memID){
   if (!memID){ alert('No diff memory recorded for this version.'); return; }
-  sendRequest({ req: "displayBorgMemory", parms: { memoryID: memID } });
+  sendRequest({ req: "displayBorgMemory", parms: {ownMUID:mbrMUID, memoryID: memID } });
 }
 
 function restoreFileVersion(fverFUID, version){

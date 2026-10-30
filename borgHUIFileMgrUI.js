@@ -652,7 +652,7 @@ async buildRepoSidebarHTML(ctx) {
             : '';
 
           html += `
-            <a href='javascript:doGetFileFromRepo("${rname}","${rec.smgrFileName}","${path}","${folderID}","${rec.smgrFileType}",${rec.smgrEncrypted},"${rec.smgrCheckSum}","${rec.smgrFileShaFUID}");'>
+            <a href='javascript:doGetFileFromRepo("${rname}","${rec.smgrFileName}","${path}","${folderID}","${rec.smgrFileType}",${rec.smgrEncrypted},"${rec.smgrCheckSum}","${rec.smgrFileShaFUID}","${rec.smgrLineageID}");'>
               <div style='padding:.0em .5em .5em 1.5em;'>${left(rec.smgrFileName, 30)}${vTag}</div>
             </a>
           `;

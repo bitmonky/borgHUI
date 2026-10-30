@@ -1310,6 +1310,7 @@ async doUpdateFileVersion(m,res){
 
   // 8. Idempotent set of diffMemID on the row (in case step 6 wrote without it).
   try {
+    console.log(`doUpdateFileVersion().ftreeSetFileVersionDiffMem:: lineageID, nextVersion, diffMemID`,lineageID, nextVersion, diffMemID);
     await this.PTree.ftreeSetFileVersionDiffMem(lineageID, nextVersion, diffMemID);
   } catch(_) {}
 
@@ -1395,6 +1396,7 @@ async ensureLocalCopy(checkSum, targetPath){
 }
 
 async storeDiffMemory(memBody, memStr, memHash){
+  console.log(`storeDiffMemory():: memBody, memStr, memHash`,memBody, memStr, memHash);
   try {
     // Text diffs get the LLM keyword treatment; binaries use a hand-built set.
     let weights;
@@ -1404,7 +1406,11 @@ async storeDiffMemory(memBody, memStr, memHash){
         memID: memHash,
         memType: 'BorgFileDiff'
       });
-      if (r === true || r === null) return memHash;
+      console.log(`storeDiffMemory():: this.MStream.doStoreMemory`,r);
+      if (r !== false && r !== null) {
+        console.log(`storeDiffMemory():: 2 this.MStream.doStoreMemory`,r);
+        return r;
+      } //memHash;
       // fallthrough to manual store if LLM path bailed
     }
     weights = borgDiff.makeDiffWeights({
@@ -2059,8 +2065,10 @@ class bitMonkyWallet{
      const memories = [];
      const m = j.parms;
      const qry = 'displayFullMemory.mem';
-
+     console.log(`service`,service);
+     if (!m.memoryHash) m.memoryHash = m.memoryID; 
      memories.push({hash: m.memoryHash,ownMUID: m.ownMUID, shardHID: m.memoryID});
+     console.log(`memories`,memories);
 
      this.net.MStream.doOpenMemStream(memories, service, qry,'dispFull');
 

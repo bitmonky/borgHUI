@@ -92,10 +92,12 @@ function handleBorgMsg(msg){
     return;
   }
   if (msg.req === 'updateMemQry'){
+    console.log(`updateMemQry `,msg);
     if (msg.error === true) {
       hideDiv(`mem-${msg.hash}`);
       return;
     } 
+    showDiv(`mem-${msg.hash}`);
     if (msg.display === 'qry'){
       doUpdateMemQry(msg);
       return;
@@ -1404,6 +1406,7 @@ function format(value) {
 /************************************************************
  *  FILE SYS / STORE / TRENDING / QUERY RESULTS
  ************************************************************/
+/*
 function doShowFileLineage(j){
   hideSearching();
   const spot = document.getElementById('servSidePanel');
@@ -1453,6 +1456,7 @@ function doShowFileLineage(j){
   spot.innerHTML = html;
   showDiv('servSidePanel');
 }
+*/
 function doShowSendShellsResult(j) {
   if (j.actionRes) {
     getAccountInfo();

@@ -194,8 +194,8 @@ class BorgHUImemoryMgr {
      console.log(`doStoreMemory():: final weights is `,weights);
      if (await this.storeUserMemoryToTree(weights, memStr, this.net.wallet.ownMUID, memHash)){
        const doTry = await this.uploadMemoryFile(memStr, this.net.wallet.ownMUID, memHash);
-       console.log(`doStoreMemory():: `,doTry);
-       return doTry;
+       console.log(`doStoreMemory():: `,memHash);
+       return memHash;
      }
      return null;
   }
@@ -1259,7 +1259,8 @@ class BorgHUImemoryMgr {
     this.net.pushEvent(
       'borg-event',{
          req      : "updateMemQry",
-         error    : false,hash:shard.shardId,
+         error    : false,
+         hash     : shard.shardId,
          display  : stream.dispType,
          ownMUID  : shard.ownerID,
          memoryID : shard.memoryID,
